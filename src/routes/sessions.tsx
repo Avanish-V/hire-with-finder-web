@@ -23,15 +23,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { FullScreenComposer, FormSection } from "@/components/FullScreenComposer";
+import { PeopleList, peopleFor } from "@/components/PeopleList";
+
 import {
   Select,
   SelectContent,
@@ -218,7 +212,30 @@ function FullScreenSession({ s, onClose }: { s: LiveSession; onClose: () => void
               ))}
             </ol>
           </section>
+
+          <section className="panel mt-6 p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Enrolled students</h2>
+                <p className="text-sm text-muted-foreground">
+                  {s.enrolled} enrolled · {s.seats - s.enrolled} seats left
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toast.success("Enrollee list exported (CSV)")}
+              >
+                Export
+              </Button>
+            </div>
+            <PeopleList
+              people={peopleFor(s.title, "Session")}
+              emptyLabel="No enrollments yet for this session."
+            />
+          </section>
         </div>
+
 
         <aside className="space-y-4">
           <div className="panel p-5">
