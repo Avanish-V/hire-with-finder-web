@@ -1,23 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { MapPin, Users, Plus, MoreHorizontal, IndianRupee } from "lucide-react";
+import { MapPin, Users, Plus, MoreHorizontal, IndianRupee, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
+import { FullScreenComposer, FormSection } from "@/components/FullScreenComposer";
+import { PeopleList, peopleFor } from "@/components/PeopleList";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -52,7 +45,7 @@ const statusTone: Record<Job["status"], string> = {
   Draft: "bg-warning/15 text-warning",
 };
 
-function JobCard({ job }: { job: Job }) {
+function JobCard({ job, onViewApplicants }: { job: Job; onViewApplicants: () => void }) {
   return (
     <article className="panel p-5 transition-colors hover:border-primary/40">
       <div className="flex items-start justify-between gap-3">
@@ -92,7 +85,7 @@ function JobCard({ job }: { job: Job }) {
       </div>
 
       <div className="mt-5 flex gap-2">
-        <Button variant="outline" size="sm" className="flex-1">
+        <Button variant="outline" size="sm" className="flex-1" onClick={onViewApplicants}>
           View applicants
         </Button>
         <Button variant="ghost" size="sm">
@@ -103,83 +96,120 @@ function JobCard({ job }: { job: Job }) {
   );
 }
 
-function PostJobDialog() {
-  const [open, setOpen] = useState(false);
+function JobApplicantsScreen({ job, onClose }: { job: Job; onClose: () => void }) {
+  const people = peopleFor(job.title, "Job");
+  const stages = ["New", "Shortlisted", "Interview", "Hired", "Rejected"] as const;
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="size-4" /> Post a role
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Post an internship or job</DialogTitle>
-          <DialogDescription>
-            Published roles appear on the Finder board immediately.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          className="grid gap-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setOpen(false);
-            toast.success("Role posted", { description: "Your listing is now live on Finder." });
-          }}
-        >
-          <div className="grid gap-2">
-            <Label htmlFor="job-title">Role title</Label>
-            <Input id="job-title" placeholder="Frontend Engineering Intern" required />
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
+      <div className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 md:px-8">
+          <Button variant="ghost" size="icon" aria-label="Close applicants" onClick={onClose}>
+            <X className="size-4" />
+          </Button>
+          <div className="min-w-0">
+            <p className="truncate font-medium">Applicants · {job.title}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {job.company} · {job.location}
+            </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="job-company">Company</Label>
-              <Input id="job-company" placeholder="Northwind Labs" required />
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-5xl px-4 py-6 md:px-8">
+        <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
+          {stages.map((s) => (
+            <div key={s} className="panel p-4">
+              <p className="text-eyebrow">{s}</p>
+              <p className="mt-2 font-display text-2xl font-semibold">
+                {people.filter((p) => p.stage === s).length}
+              </p>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="job-type">Type</Label>
-              <Select defaultValue="Internship">
-                <SelectTrigger id="job-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Internship">Internship</SelectItem>
-                  <SelectItem value="Full-time">Full-time</SelectItem>
-                  <SelectItem value="Part-time">Part-time</SelectItem>
-                  <SelectItem value="Contract">Contract</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="job-location">Location</Label>
-              <Input id="job-location" placeholder="Remote · India" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="job-pay">Stipend / salary</Label>
-              <Input id="job-pay" placeholder="₹25,000 / mo" />
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="job-skills">Required skills</Label>
-            <Input id="job-skills" placeholder="React, TypeScript, Tailwind" />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="job-desc">Description</Label>
-            <Textarea id="job-desc" rows={4} placeholder="What the role involves…" />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
+          ))}
+        </div>
+
+        <section className="panel mt-6 p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">
+              {people.length} candidate{people.length === 1 ? "" : "s"}
+            </h2>
+            <Button variant="outline" size="sm" onClick={() => toast.success("Export started (CSV)")}>
+              Export
             </Button>
-            <Button type="submit">Publish role</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </div>
+          <PeopleList people={people} emptyLabel="No applications for this role yet." />
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function PostJobScreen({ onClose }: { onClose: () => void }) {
+  return (
+    <FullScreenComposer
+      title="Post an internship or job"
+      description="Published roles appear on the Finder board immediately."
+      submitLabel="Publish role"
+      onClose={onClose}
+      onSubmit={() => {
+        onClose();
+        toast.success("Role posted", { description: "Your listing is now live on Finder." });
+      }}
+    >
+      <FormSection title="Role basics" hint="What you're hiring for and where.">
+        <div className="grid gap-2">
+          <Label htmlFor="job-title">Role title</Label>
+          <Input id="job-title" placeholder="Frontend Engineering Intern" required />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor="job-company">Company</Label>
+            <Input id="job-company" placeholder="Northwind Labs" required />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="job-type">Type</Label>
+            <Select defaultValue="Internship">
+              <SelectTrigger id="job-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Internship">Internship</SelectItem>
+                <SelectItem value="Full-time">Full-time</SelectItem>
+                <SelectItem value="Part-time">Part-time</SelectItem>
+                <SelectItem value="Contract">Contract</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="job-location">Location</Label>
+            <Input id="job-location" placeholder="Remote · India" />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="job-pay">Stipend / salary</Label>
+            <Input id="job-pay" placeholder="₹25,000 / mo" />
+          </div>
+        </div>
+      </FormSection>
+
+      <FormSection title="Requirements" hint="Skills and the detail candidates need.">
+        <div className="grid gap-2">
+          <Label htmlFor="job-skills">Required skills</Label>
+          <Input id="job-skills" placeholder="React, TypeScript, Tailwind" />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="job-desc">Description</Label>
+          <Textarea id="job-desc" rows={8} placeholder="What the role involves…" />
+        </div>
+      </FormSection>
+    </FullScreenComposer>
   );
 }
 
 function JobsPage() {
+  const [composing, setComposing] = useState(false);
+  const [applicantsJobId, setApplicantsJobId] = useState<string | null>(null);
+  const activeJob = jobs.find((j) => j.id === applicantsJobId) ?? null;
+
   const groups = {
     all: jobs,
     internship: jobs.filter((j) => j.type === "Internship"),
@@ -193,7 +223,11 @@ function JobsPage() {
         eyebrow="Recruitment"
         title="Jobs & internships"
         description="Every opening you've published, with live applicant counts and quick edits."
-        action={<PostJobDialog />}
+        action={
+          <Button onClick={() => setComposing(true)}>
+            <Plus className="size-4" /> Post a role
+          </Button>
+        }
       />
 
       <Tabs defaultValue="all">
@@ -207,12 +241,21 @@ function JobsPage() {
           <TabsContent key={key} value={key} className="mt-6">
             <div className="grid gap-4 md:grid-cols-2">
               {groups[key].map((job) => (
-                <JobCard key={job.id} job={job} />
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  onViewApplicants={() => setApplicantsJobId(job.id)}
+                />
               ))}
             </div>
           </TabsContent>
         ))}
       </Tabs>
+
+      {composing && <PostJobScreen onClose={() => setComposing(false)} />}
+      {activeJob && (
+        <JobApplicantsScreen job={activeJob} onClose={() => setApplicantsJobId(null)} />
+      )}
     </div>
   );
 }

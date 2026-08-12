@@ -23,15 +23,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { FullScreenComposer, FormSection } from "@/components/FullScreenComposer";
+import { PeopleList, peopleFor } from "@/components/PeopleList";
+
 import {
   Select,
   SelectContent,
@@ -218,7 +212,30 @@ function FullScreenSession({ s, onClose }: { s: LiveSession; onClose: () => void
               ))}
             </ol>
           </section>
+
+          <section className="panel mt-6 p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Enrolled students</h2>
+                <p className="text-sm text-muted-foreground">
+                  {s.enrolled} enrolled · {s.seats - s.enrolled} seats left
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toast.success("Enrollee list exported (CSV)")}
+              >
+                Export
+              </Button>
+            </div>
+            <PeopleList
+              people={peopleFor(s.title, "Session")}
+              emptyLabel="No enrollments yet for this session."
+            />
+          </section>
         </div>
+
 
         <aside className="space-y-4">
           <div className="panel p-5">
@@ -259,209 +276,179 @@ function FullScreenSession({ s, onClose }: { s: LiveSession; onClose: () => void
   );
 }
 
-function NewSessionDialog() {
-  const [open, setOpen] = useState(false);
+function NewSessionScreen({ onClose }: { onClose: () => void }) {
   const [paid, setPaid] = useState(true);
   const [thumb, setThumb] = useState<string | null>(null);
   const [modules, setModules] = useState<SessionModule[]>([{ title: "", duration: "" }]);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const reset = () => {
-    setPaid(true);
-    setThumb(null);
-    setModules([{ title: "", duration: "" }]);
-  };
-
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) reset();
+    <FullScreenComposer
+      title="Create a live skill session"
+      description="Add a thumbnail, modules, pricing and the live join link."
+      submitLabel="Schedule session"
+      onClose={onClose}
+      onSubmit={() => {
+        onClose();
+        toast.success("Session scheduled", {
+          description: "Modules saved and join link shared with enrollees.",
+        });
       }}
     >
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="size-4" /> New live session
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Create a live skill session</DialogTitle>
-          <DialogDescription>
-            Set it up like a course — add a thumbnail, modules, pricing and the live join link.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          className="grid gap-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setOpen(false);
-            reset();
-            toast.success("Session scheduled", {
-              description: "Modules saved and join link shared with enrollees.",
-            });
-          }}
-        >
+      <FormSection title="Cover & title" hint="How the session appears on the Finder board.">
+        <div className="grid gap-2">
+          <Label>Thumbnail</Label>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="relative grid h-48 w-full place-items-center overflow-hidden rounded-lg border border-dashed border-border bg-secondary/40 text-muted-foreground transition-colors hover:border-primary/50"
+          >
+            {thumb ? (
+              <img src={thumb} alt="Session thumbnail preview" className="size-full object-cover" />
+            ) : (
+              <span className="flex flex-col items-center gap-1 text-xs">
+                <ImagePlus className="size-5" />
+                Upload cover image (16:9)
+              </span>
+            )}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setThumb(URL.createObjectURL(f));
+            }}
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="s-title">Session title</Label>
+          <Input id="s-title" placeholder="System Design for Interviews" required />
+        </div>
+      </FormSection>
+
+      <FormSection title="Schedule & seats" hint="When it runs live and how many can join.">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">
-            <Label>Thumbnail</Label>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="relative grid h-36 w-full place-items-center overflow-hidden rounded-lg border border-dashed border-border bg-secondary/40 text-muted-foreground transition-colors hover:border-primary/50"
-            >
-              {thumb ? (
-                <img src={thumb} alt="Session thumbnail preview" className="size-full object-cover" />
-              ) : (
-                <span className="flex flex-col items-center gap-1 text-xs">
-                  <ImagePlus className="size-5" />
-                  Upload cover image (16:9)
-                </span>
-              )}
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) setThumb(URL.createObjectURL(f));
-              }}
+            <Label htmlFor="s-date">Date</Label>
+            <Input id="s-date" type="date" required />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="s-time">Start time</Label>
+            <Input id="s-time" type="time" required />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="s-duration">Duration</Label>
+            <Input id="s-duration" placeholder="90 min" />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="s-level">Level</Label>
+            <Select defaultValue="Beginner">
+              <SelectTrigger id="s-level">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Beginner">Beginner</SelectItem>
+                <SelectItem value="Intermediate">Intermediate</SelectItem>
+                <SelectItem value="Advanced">Advanced</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="s-seats">Seats</Label>
+            <Input id="s-seats" type="number" placeholder="100" />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="s-price">Price</Label>
+            <Input
+              id="s-price"
+              key={paid ? "paid" : "free"}
+              placeholder="₹499"
+              disabled={!paid}
+              defaultValue={paid ? "" : "Free"}
             />
           </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="s-title">Session title</Label>
-            <Input id="s-title" placeholder="System Design for Interviews" required />
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-border p-3">
+          <div>
+            <p className="text-sm font-medium">{paid ? "Paid session" : "Free session"}</p>
+            <p className="text-xs text-muted-foreground">
+              {paid ? "Enrollees pay before getting the join link" : "Anyone can enroll at no cost"}
+            </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="s-date">Date</Label>
-              <Input id="s-date" type="date" required />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="s-time">Start time</Label>
-              <Input id="s-time" type="time" required />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="s-duration">Duration</Label>
-              <Input id="s-duration" placeholder="90 min" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="s-level">Level</Label>
-              <Select defaultValue="Beginner">
-                <SelectTrigger id="s-level">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Beginner">Beginner</SelectItem>
-                  <SelectItem value="Intermediate">Intermediate</SelectItem>
-                  <SelectItem value="Advanced">Advanced</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="s-seats">Seats</Label>
-              <Input id="s-seats" type="number" placeholder="100" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="s-price">Price</Label>
+          <Switch checked={paid} onCheckedChange={setPaid} aria-label="Paid session" />
+        </div>
+      </FormSection>
+
+      <FormSection title="Modules" hint="Break the session into segments, like a course.">
+        <div className="space-y-2">
+          {modules.map((m, i) => (
+            <div key={i} className="flex gap-2">
               <Input
-                id="s-price"
-                key={paid ? "paid" : "free"}
-                placeholder="₹499"
-                disabled={!paid}
-                defaultValue={paid ? "" : "Free"}
+                placeholder={`Module ${i + 1} title`}
+                value={m.title}
+                onChange={(e) =>
+                  setModules((prev) =>
+                    prev.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)),
+                  )
+                }
               />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border border-border p-3">
-            <div>
-              <p className="text-sm font-medium">{paid ? "Paid session" : "Free session"}</p>
-              <p className="text-xs text-muted-foreground">
-                {paid ? "Enrollees pay before getting the join link" : "Anyone can enroll at no cost"}
-              </p>
-            </div>
-            <Switch checked={paid} onCheckedChange={setPaid} aria-label="Paid session" />
-          </div>
-
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between">
-              <Label>Modules</Label>
+              <Input
+                className="w-28 shrink-0"
+                placeholder="20 min"
+                value={m.duration}
+                onChange={(e) =>
+                  setModules((prev) =>
+                    prev.map((x, j) => (j === i ? { ...x, duration: e.target.value } : x)),
+                  )
+                }
+              />
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
-                onClick={() => setModules((m) => [...m, { title: "", duration: "" }])}
+                size="icon"
+                aria-label={`Remove module ${i + 1}`}
+                disabled={modules.length === 1}
+                onClick={() => setModules((prev) => prev.filter((_, j) => j !== i))}
               >
-                <Plus className="size-3.5" /> Add module
+                <Trash2 className="size-4" />
               </Button>
             </div>
-            <div className="space-y-2">
-              {modules.map((m, i) => (
-                <div key={i} className="flex gap-2">
-                  <Input
-                    placeholder={`Module ${i + 1} title`}
-                    value={m.title}
-                    onChange={(e) =>
-                      setModules((prev) =>
-                        prev.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)),
-                      )
-                    }
-                  />
-                  <Input
-                    className="w-28 shrink-0"
-                    placeholder="20 min"
-                    value={m.duration}
-                    onChange={(e) =>
-                      setModules((prev) =>
-                        prev.map((x, j) => (j === i ? { ...x, duration: e.target.value } : x)),
-                      )
-                    }
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Remove module ${i + 1}`}
-                    disabled={modules.length === 1}
-                    onClick={() => setModules((prev) => prev.filter((_, j) => j !== i))}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
+          ))}
+        </div>
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setModules((m) => [...m, { title: "", duration: "" }])}
+          >
+            <Plus className="size-3.5" /> Add module
+          </Button>
+        </div>
+      </FormSection>
 
-          <div className="grid gap-2">
-            <Label htmlFor="s-url">Live session URL</Label>
-            <Input id="s-url" type="url" placeholder="https://meet.google.com/abc-defg-hij" />
-            <p className="text-xs text-muted-foreground">
-              Paste your Meet/Zoom link, or leave blank to auto-generate a Meet link.
-            </p>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="s-desc">What learners will get</Label>
-            <Textarea id="s-desc" rows={4} placeholder="Curriculum, outcomes, prerequisites…" />
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">Schedule session</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <FormSection title="Live link & details" hint="Where learners join and what they get.">
+        <div className="grid gap-2">
+          <Label htmlFor="s-url">Live session URL</Label>
+          <Input id="s-url" type="url" placeholder="https://meet.google.com/abc-defg-hij" />
+          <p className="text-xs text-muted-foreground">
+            Paste your Meet/Zoom link, or leave blank to auto-generate a Meet link.
+          </p>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="s-desc">What learners will get</Label>
+          <Textarea id="s-desc" rows={6} placeholder="Curriculum, outcomes, prerequisites…" />
+        </div>
+      </FormSection>
+    </FullScreenComposer>
   );
 }
 
 function SessionsPage() {
+  const [composing, setComposing] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const active = sessions.find((s) => s.id === openId) ?? null;
 
@@ -471,14 +458,20 @@ function SessionsPage() {
         eyebrow="Skills"
         title="Live skill sessions"
         description="Publish sessions like courses — they run live online on Google Meet, with seats and enrollments tracked here."
-        action={<NewSessionDialog />}
+        action={
+          <Button onClick={() => setComposing(true)}>
+            <Plus className="size-4" /> New live session
+          </Button>
+        }
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {sessions.map((s) => (
           <SessionCard key={s.id} s={s} onOpen={() => setOpenId(s.id)} />
         ))}
       </div>
+      {composing && <NewSessionScreen onClose={() => setComposing(false)} />}
       {active && <FullScreenSession s={active} onClose={() => setOpenId(null)} />}
     </div>
   );
 }
+
