@@ -90,7 +90,23 @@ export type LiveSession = {
   status: "Live now" | "Scheduled" | "Completed";
   meetLink: string;
   tags: string[];
+  thumbnail?: string;
+  summary?: string;
+  modules?: SessionModule[];
 };
+
+export type SessionModule = {
+  title: string;
+  duration: string;
+  detail?: string;
+};
+
+export const defaultModules: SessionModule[] = [
+  { title: "Kickoff & goals", duration: "10 min", detail: "What we cover and how to follow along." },
+  { title: "Core concepts walkthrough", duration: "35 min", detail: "Live teaching with shared screen." },
+  { title: "Hands-on build", duration: "30 min", detail: "Work through a real problem together." },
+  { title: "Q&A and next steps", duration: "15 min", detail: "Open questions, resources, homework." },
+];
 
 export const sessions: LiveSession[] = [
   {
