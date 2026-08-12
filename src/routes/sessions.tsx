@@ -367,7 +367,13 @@ function NewSessionDialog() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="s-price">Price</Label>
-              <Input id="s-price" placeholder="₹499" disabled={!paid} value={paid ? undefined : "Free"} />
+              <Input
+                id="s-price"
+                key={paid ? "paid" : "free"}
+                placeholder="₹499"
+                disabled={!paid}
+                defaultValue={paid ? "" : "Free"}
+              />
             </div>
           </div>
 
