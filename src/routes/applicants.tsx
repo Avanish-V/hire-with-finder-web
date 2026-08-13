@@ -24,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { applicants, stageTone, type Applicant } from "@/lib/finder-data";
+import { CandidateProfileScreen } from "@/components/CandidateProfile";
 
 export const Route = createFileRoute("/applicants")({
   head: () => ({
@@ -50,6 +51,7 @@ function ApplicantsPage() {
   const [kind, setKind] = useState<"all" | "Job" | "Session">("all");
   const [stage, setStage] = useState<string>("all");
   const [query, setQuery] = useState("");
+  const [profile, setProfile] = useState<Applicant | null>(null);
 
   const rows = useMemo(
     () =>
@@ -137,17 +139,21 @@ function ApplicantsPage() {
               {rows.map((a) => (
                 <TableRow key={a.id}>
                   <TableCell>
-                    <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      className="flex items-center gap-3 text-left"
+                      onClick={() => setProfile(a)}
+                    >
                       <Avatar className="size-9 border border-border">
                         <AvatarFallback className="bg-secondary text-xs">
                           {a.initials}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-sm font-medium">{a.name}</p>
+                        <p className="text-sm font-medium hover:text-primary">{a.name}</p>
                         <p className="text-xs text-muted-foreground">{a.role}</p>
                       </div>
-                    </div>
+                    </button>
                   </TableCell>
                   <TableCell className="max-w-[14rem] truncate text-sm">{a.target}</TableCell>
                   <TableCell>
@@ -164,6 +170,9 @@ function ApplicantsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
+                      <Button variant="outline" size="sm" onClick={() => setProfile(a)}>
+                        View profile
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -203,6 +212,10 @@ function ApplicantsPage() {
           </Table>
         </div>
       </div>
+
+      {profile && (
+        <CandidateProfileScreen applicant={profile} onClose={() => setProfile(null)} />
+      )}
     </div>
   );
 }
