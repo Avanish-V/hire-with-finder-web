@@ -13,6 +13,7 @@ import {
   Trash2,
   Link2,
   PlayCircle,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
@@ -81,7 +82,15 @@ function ThumbBanner({ s, className }: { s: LiveSession; className?: string }) {
   );
 }
 
-function SessionCard({ s, onOpen }: { s: LiveSession; onOpen: () => void }) {
+function SessionCard({
+  s,
+  onOpen,
+  onEdit,
+}: {
+  s: LiveSession;
+  onOpen: () => void;
+  onEdit: () => void;
+}) {
   const pct = Math.round((s.enrolled / s.seats) * 100);
   return (
     <article className="panel overflow-hidden">
@@ -137,6 +146,9 @@ function SessionCard({ s, onOpen }: { s: LiveSession; onOpen: () => void }) {
           <Button className="flex-1" variant={s.status === "Live now" ? "default" : "outline"} onClick={onOpen}>
             {s.status === "Live now" ? "Join Meet" : "Open session"}
           </Button>
+          <Button variant="ghost" size="icon" aria-label="Edit session" onClick={onEdit}>
+            <Pencil className="size-4" />
+          </Button>
           <Button variant="ghost" size="icon" aria-label="Open full screen" onClick={onOpen}>
             <Maximize2 className="size-4" />
           </Button>
@@ -146,7 +158,15 @@ function SessionCard({ s, onOpen }: { s: LiveSession; onOpen: () => void }) {
   );
 }
 
-function FullScreenSession({ s, onClose }: { s: LiveSession; onClose: () => void }) {
+function FullScreenSession({
+  s,
+  onClose,
+  onEdit,
+}: {
+  s: LiveSession;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
   const modules = s.modules ?? defaultModules;
   const pct = Math.round((s.enrolled / s.seats) * 100);
   return (
@@ -159,7 +179,10 @@ function FullScreenSession({ s, onClose }: { s: LiveSession; onClose: () => void
           {s.status}
         </Badge>
         <p className="truncate font-medium">{s.title}</p>
-        <Button variant="ghost" size="icon" className="ml-auto" aria-label="Exit full screen" onClick={onClose}>
+        <Button variant="outline" size="sm" className="ml-auto" onClick={onEdit}>
+          <Pencil className="size-4" /> Edit session
+        </Button>
+        <Button variant="ghost" size="icon" aria-label="Exit full screen" onClick={onClose}>
           <X className="size-4" />
         </Button>
       </div>
@@ -276,22 +299,37 @@ function FullScreenSession({ s, onClose }: { s: LiveSession; onClose: () => void
   );
 }
 
-function NewSessionScreen({ onClose }: { onClose: () => void }) {
-  const [paid, setPaid] = useState(true);
-  const [thumb, setThumb] = useState<string | null>(null);
-  const [modules, setModules] = useState<SessionModule[]>([{ title: "", duration: "" }]);
+function NewSessionScreen({
+  session,
+  onClose,
+}: {
+  session?: LiveSession;
+  onClose: () => void;
+}) {
+  const editing = Boolean(session);
+  const [paid, setPaid] = useState(session ? session.price !== "Free" : true);
+  const [thumb, setThumb] = useState<string | null>(session?.thumbnail ?? null);
+  const [modules, setModules] = useState<SessionModule[]>(
+    session?.modules ?? (editing ? defaultModules : [{ title: "", duration: "" }]),
+  );
   const fileRef = useRef<HTMLInputElement>(null);
 
   return (
     <FullScreenComposer
-      title="Create a live skill session"
-      description="Add a thumbnail, modules, pricing and the live join link."
-      submitLabel="Schedule session"
+      title={editing ? `Edit · ${session!.title}` : "Create a live skill session"}
+      description={
+        editing
+          ? "Update the cover, modules, pricing or join link."
+          : "Add a thumbnail, modules, pricing and the live join link."
+      }
+      submitLabel={editing ? "Save changes" : "Schedule session"}
       onClose={onClose}
       onSubmit={() => {
         onClose();
-        toast.success("Session scheduled", {
-          description: "Modules saved and join link shared with enrollees.",
+        toast.success(editing ? "Session updated" : "Session scheduled", {
+          description: editing
+            ? "Enrollees will see the updated details."
+            : "Modules saved and join link shared with enrollees.",
         });
       }}
     >
@@ -325,7 +363,7 @@ function NewSessionScreen({ onClose }: { onClose: () => void }) {
         </div>
         <div className="grid gap-2">
           <Label htmlFor="s-title">Session title</Label>
-          <Input id="s-title" placeholder="System Design for Interviews" required />
+          <Input id="s-title" placeholder="System Design for Interviews" defaultValue={session?.title} required />
         </div>
       </FormSection>
 
@@ -341,11 +379,11 @@ function NewSessionScreen({ onClose }: { onClose: () => void }) {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="s-duration">Duration</Label>
-            <Input id="s-duration" placeholder="90 min" />
+            <Input id="s-duration" placeholder="90 min" defaultValue={session?.duration} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="s-level">Level</Label>
-            <Select defaultValue="Beginner">
+            <Select defaultValue={session?.level ?? "Beginner"}>
               <SelectTrigger id="s-level">
                 <SelectValue />
               </SelectTrigger>
@@ -358,7 +396,7 @@ function NewSessionScreen({ onClose }: { onClose: () => void }) {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="s-seats">Seats</Label>
-            <Input id="s-seats" type="number" placeholder="100" />
+            <Input id="s-seats" type="number" placeholder="100" defaultValue={session?.seats} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="s-price">Price</Label>
@@ -367,7 +405,7 @@ function NewSessionScreen({ onClose }: { onClose: () => void }) {
               key={paid ? "paid" : "free"}
               placeholder="₹499"
               disabled={!paid}
-              defaultValue={paid ? "" : "Free"}
+              defaultValue={paid ? (session && session.price !== "Free" ? session.price : "") : "Free"}
             />
           </div>
         </div>
@@ -433,14 +471,23 @@ function NewSessionScreen({ onClose }: { onClose: () => void }) {
       <FormSection title="Live link & details" hint="Where learners join and what they get.">
         <div className="grid gap-2">
           <Label htmlFor="s-url">Live session URL</Label>
-          <Input id="s-url" type="url" placeholder="https://meet.google.com/abc-defg-hij" />
+          <Input
+            id="s-url"
+            placeholder="https://meet.google.com/abc-defg-hij"
+            defaultValue={session?.meetLink}
+          />
           <p className="text-xs text-muted-foreground">
             Paste your Meet/Zoom link, or leave blank to auto-generate a Meet link.
           </p>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="s-desc">What learners will get</Label>
-          <Textarea id="s-desc" rows={6} placeholder="Curriculum, outcomes, prerequisites…" />
+          <Textarea
+            id="s-desc"
+            rows={6}
+            placeholder="Curriculum, outcomes, prerequisites…"
+            defaultValue={session?.summary}
+          />
         </div>
       </FormSection>
     </FullScreenComposer>
@@ -450,7 +497,9 @@ function NewSessionScreen({ onClose }: { onClose: () => void }) {
 function SessionsPage() {
   const [composing, setComposing] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const active = sessions.find((s) => s.id === openId) ?? null;
+  const editing = sessions.find((s) => s.id === editId) ?? null;
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -466,11 +515,23 @@ function SessionsPage() {
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {sessions.map((s) => (
-          <SessionCard key={s.id} s={s} onOpen={() => setOpenId(s.id)} />
+          <SessionCard
+            key={s.id}
+            s={s}
+            onOpen={() => setOpenId(s.id)}
+            onEdit={() => setEditId(s.id)}
+          />
         ))}
       </div>
       {composing && <NewSessionScreen onClose={() => setComposing(false)} />}
-      {active && <FullScreenSession s={active} onClose={() => setOpenId(null)} />}
+      {editing && <NewSessionScreen session={editing} onClose={() => setEditId(null)} />}
+      {active && (
+        <FullScreenSession
+          s={active}
+          onClose={() => setOpenId(null)}
+          onEdit={() => setEditId(active.id)}
+        />
+      )}
     </div>
   );
 }
