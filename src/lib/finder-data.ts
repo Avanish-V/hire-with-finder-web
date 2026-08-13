@@ -278,3 +278,112 @@ export const stageTone: Record<Applicant["stage"], string> = {
   Hired: "bg-success/15 text-success",
   Rejected: "bg-destructive/15 text-destructive",
 };
+
+export type CandidateEducation = {
+  college: string;
+  course: string;
+  specialization: string;
+  courseStart: string;
+  courseEnd: string;
+  cgpa: string;
+};
+
+export type CandidateSkill = { name: string; level: "Beginner" | "Intermediate" | "Advanced" };
+
+export type CandidateProfile = {
+  tagline: string;
+  summary: string;
+  phone: string;
+  gender: "Male" | "Female" | "Other" | "Unspecified";
+  location: string;
+  verified: boolean;
+  githubUsername?: string;
+  auraPoints: number;
+  education: CandidateEducation;
+  skills: CandidateSkill[];
+  experience: { role: string; org: string; period: string }[];
+};
+
+const profiles: Record<string, CandidateProfile> = {
+  a1: {
+    tagline: "Frontend engineer in the making",
+    summary:
+      "Final-year CS student building production React apps. Interned on a design-system team and shipped 20+ accessible components.",
+    phone: "+91 90000 11223",
+    gender: "Female",
+    location: "Trichy, India",
+    verified: true,
+    githubUsername: "priyanair",
+    auraPoints: 1840,
+    education: {
+      college: "NIT Trichy",
+      course: "B.Tech",
+      specialization: "Computer Science",
+      courseStart: "2022",
+      courseEnd: "2026",
+      cgpa: "9.1",
+    },
+    skills: [
+      { name: "React", level: "Advanced" },
+      { name: "TypeScript", level: "Intermediate" },
+      { name: "Tailwind", level: "Advanced" },
+    ],
+    experience: [{ role: "Frontend Intern", org: "Bluepine", period: "May–Jul 2025" }],
+  },
+  a2: {
+    tagline: "Backend engineer · distributed systems",
+    summary:
+      "Three years building Node.js services on AWS. Owned a payments API handling 4M requests/day.",
+    phone: "+91 98111 44556",
+    gender: "Male",
+    location: "Bengaluru, India",
+    verified: true,
+    githubUsername: "rohit-sh",
+    auraPoints: 2560,
+    education: {
+      college: "VIT Vellore",
+      course: "B.E.",
+      specialization: "Information Technology",
+      courseStart: "2018",
+      courseEnd: "2022",
+      cgpa: "8.4",
+    },
+    skills: [
+      { name: "Node.js", level: "Advanced" },
+      { name: "Postgres", level: "Advanced" },
+      { name: "AWS", level: "Intermediate" },
+    ],
+    experience: [
+      { role: "SDE II", org: "Payflow", period: "2023–present" },
+      { role: "SDE I", org: "Zeta Labs", period: "2022–2023" },
+    ],
+  },
+};
+
+export function profileFor(a: Applicant): CandidateProfile {
+  return (
+    profiles[a.id] ?? {
+      tagline: a.role,
+      summary: `${a.name} applied to ${a.target}. Profile synced from their Finder account.`,
+      phone: "+91 90000 00000",
+      gender: "Unspecified",
+      location: "India",
+      verified: a.match >= 80,
+      githubUsername: a.name.toLowerCase().replace(/\s+/g, ""),
+      auraPoints: a.match * 12,
+      education: {
+        college: "Not provided",
+        course: "Not provided",
+        specialization: "—",
+        courseStart: "—",
+        courseEnd: "—",
+        cgpa: "—",
+      },
+      skills: [
+        { name: "Communication", level: "Intermediate" },
+        { name: "Problem solving", level: "Intermediate" },
+      ],
+      experience: [],
+    }
+  );
+}
