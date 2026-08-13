@@ -45,7 +45,15 @@ const statusTone: Record<Job["status"], string> = {
   Draft: "bg-warning/15 text-warning",
 };
 
-function JobCard({ job, onViewApplicants }: { job: Job; onViewApplicants: () => void }) {
+function JobCard({
+  job,
+  onViewApplicants,
+  onEdit,
+}: {
+  job: Job;
+  onViewApplicants: () => void;
+  onEdit: () => void;
+}) {
   return (
     <article className="panel p-5 transition-colors hover:border-primary/40">
       <div className="flex items-start justify-between gap-3">
@@ -59,7 +67,7 @@ function JobCard({ job, onViewApplicants }: { job: Job; onViewApplicants: () => 
           <h3 className="mt-2 text-lg font-semibold">{job.title}</h3>
           <p className="text-sm text-muted-foreground">{job.company}</p>
         </div>
-        <Button variant="ghost" size="icon" aria-label="Post options">
+        <Button variant="ghost" size="icon" aria-label="Post options" onClick={onEdit}>
           <MoreHorizontal className="size-4" />
         </Button>
       </div>
@@ -88,7 +96,7 @@ function JobCard({ job, onViewApplicants }: { job: Job; onViewApplicants: () => 
         <Button variant="outline" size="sm" className="flex-1" onClick={onViewApplicants}>
           View applicants
         </Button>
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" onClick={onEdit}>
           Edit
         </Button>
       </div>
@@ -144,31 +152,40 @@ function JobApplicantsScreen({ job, onClose }: { job: Job; onClose: () => void }
   );
 }
 
-function PostJobScreen({ onClose }: { onClose: () => void }) {
+function PostJobScreen({ job, onClose }: { job?: Job; onClose: () => void }) {
+  const editing = Boolean(job);
   return (
     <FullScreenComposer
-      title="Post an internship or job"
-      description="Published roles appear on the Finder board immediately."
-      submitLabel="Publish role"
+      title={editing ? `Edit · ${job!.title}` : "Post an internship or job"}
+      description={
+        editing
+          ? "Changes go live on the Finder board as soon as you save."
+          : "Published roles appear on the Finder board immediately."
+      }
+      submitLabel={editing ? "Save changes" : "Publish role"}
       onClose={onClose}
       onSubmit={() => {
         onClose();
-        toast.success("Role posted", { description: "Your listing is now live on Finder." });
+        toast.success(editing ? "Role updated" : "Role posted", {
+          description: editing
+            ? "Your changes are live on the listing."
+            : "Your listing is now live on Finder.",
+        });
       }}
     >
       <FormSection title="Role basics" hint="What you're hiring for and where.">
         <div className="grid gap-2">
           <Label htmlFor="job-title">Role title</Label>
-          <Input id="job-title" placeholder="Frontend Engineering Intern" required />
+          <Input id="job-title" placeholder="Frontend Engineering Intern" defaultValue={job?.title} required />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="job-company">Company</Label>
-            <Input id="job-company" placeholder="Northwind Labs" required />
+            <Input id="job-company" placeholder="Northwind Labs" defaultValue={job?.company} required />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="job-type">Type</Label>
-            <Select defaultValue="Internship">
+            <Select defaultValue={job?.type ?? "Internship"}>
               <SelectTrigger id="job-type">
                 <SelectValue />
               </SelectTrigger>
@@ -182,11 +199,11 @@ function PostJobScreen({ onClose }: { onClose: () => void }) {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="job-location">Location</Label>
-            <Input id="job-location" placeholder="Remote · India" />
+            <Input id="job-location" placeholder="Remote · India" defaultValue={job?.location} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="job-pay">Stipend / salary</Label>
-            <Input id="job-pay" placeholder="₹25,000 / mo" />
+            <Input id="job-pay" placeholder="₹25,000 / mo" defaultValue={job?.stipend} />
           </div>
         </div>
       </FormSection>
@@ -194,7 +211,7 @@ function PostJobScreen({ onClose }: { onClose: () => void }) {
       <FormSection title="Requirements" hint="Skills and the detail candidates need.">
         <div className="grid gap-2">
           <Label htmlFor="job-skills">Required skills</Label>
-          <Input id="job-skills" placeholder="React, TypeScript, Tailwind" />
+          <Input id="job-skills" placeholder="React, TypeScript, Tailwind" defaultValue={job?.skills.join(", ")} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="job-desc">Description</Label>
@@ -207,6 +224,8 @@ function PostJobScreen({ onClose }: { onClose: () => void }) {
 
 function JobsPage() {
   const [composing, setComposing] = useState(false);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const editingJob = jobs.find((j) => j.id === editingJobId) ?? null;
   const [applicantsJobId, setApplicantsJobId] = useState<string | null>(null);
   const activeJob = jobs.find((j) => j.id === applicantsJobId) ?? null;
 
@@ -245,6 +264,7 @@ function JobsPage() {
                   key={job.id}
                   job={job}
                   onViewApplicants={() => setApplicantsJobId(job.id)}
+                  onEdit={() => setEditingJobId(job.id)}
                 />
               ))}
             </div>
@@ -253,6 +273,9 @@ function JobsPage() {
       </Tabs>
 
       {composing && <PostJobScreen onClose={() => setComposing(false)} />}
+      {editingJob && (
+        <PostJobScreen job={editingJob} onClose={() => setEditingJobId(null)} />
+      )}
       {activeJob && (
         <JobApplicantsScreen job={activeJob} onClose={() => setApplicantsJobId(null)} />
       )}
