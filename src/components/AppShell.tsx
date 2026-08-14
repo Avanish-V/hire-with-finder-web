@@ -25,6 +25,9 @@ const nav = [
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
+  // Auth is a standalone full-page experience without app chrome.
+  if (pathname.startsWith("/auth")) return <>{children}</>;
+
   return (
     <div className="min-h-screen lg:flex">
       <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-4 py-6 lg:sticky lg:top-0 lg:flex lg:h-screen">
@@ -86,9 +89,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Button variant="ghost" size="icon" aria-label="Notifications">
               <Bell className="size-4" />
             </Button>
-            <Avatar className="size-9 border border-border">
-              <AvatarFallback className="bg-secondary text-xs font-semibold">AK</AvatarFallback>
-            </Avatar>
+            <Link to="/auth" aria-label="Account and sign in">
+              <Avatar className="size-9 border border-border transition-opacity hover:opacity-80">
+                <AvatarFallback className="bg-secondary text-xs font-semibold">AK</AvatarFallback>
+              </Avatar>
+            </Link>
           </div>
         </header>
 
