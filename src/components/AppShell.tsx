@@ -19,7 +19,6 @@ const nav = [
   { to: "/jobs", label: "Jobs & Internships", icon: Briefcase },
   { to: "/sessions", label: "Live Skill Sessions", icon: Radio },
   { to: "/applicants", label: "Applicants", icon: Users },
-  { to: "/profile", label: "Profile", icon: UserRound },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
