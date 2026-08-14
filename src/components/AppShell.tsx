@@ -4,7 +4,6 @@ import {
   Briefcase,
   Radio,
   Users,
-  UserRound,
   Search,
   Bell,
 } from "lucide-react";
