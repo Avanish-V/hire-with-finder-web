@@ -4,7 +4,6 @@ import {
   Briefcase,
   Radio,
   Users,
-  UserRound,
   Search,
   Bell,
 } from "lucide-react";
@@ -19,7 +18,6 @@ const nav = [
   { to: "/jobs", label: "Jobs & Internships", icon: Briefcase },
   { to: "/sessions", label: "Live Skill Sessions", icon: Radio },
   { to: "/applicants", label: "Applicants", icon: Users },
-  { to: "/profile", label: "Profile", icon: UserRound },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -89,7 +87,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Button variant="ghost" size="icon" aria-label="Notifications">
               <Bell className="size-4" />
             </Button>
-            <Link to="/auth" aria-label="Account and sign in">
+            <Link to="/profile" aria-label="Profile">
               <Avatar className="size-9 border border-border transition-opacity hover:opacity-80">
                 <AvatarFallback className="bg-secondary text-xs font-semibold">AK</AvatarFallback>
               </Avatar>
