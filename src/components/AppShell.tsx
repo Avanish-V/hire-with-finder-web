@@ -89,9 +89,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Button variant="ghost" size="icon" aria-label="Notifications">
               <Bell className="size-4" />
             </Button>
-            <Avatar className="size-9 border border-border">
-              <AvatarFallback className="bg-secondary text-xs font-semibold">AK</AvatarFallback>
-            </Avatar>
+            <Link to="/auth" aria-label="Account and sign in">
+              <Avatar className="size-9 border border-border transition-opacity hover:opacity-80">
+                <AvatarFallback className="bg-secondary text-xs font-semibold">AK</AvatarFallback>
+              </Avatar>
+            </Link>
           </div>
         </header>
 
