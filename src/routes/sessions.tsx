@@ -42,6 +42,7 @@ import {
   type SessionModule,
   type Applicant,
 } from "@/lib/finder-data";
+import { apiRequest } from "@/lib/apiClient";
 import {
   getSessions,
   createSession,
@@ -405,6 +406,7 @@ function NewSessionScreen({
   const editing = Boolean(session);
   const [paid, setPaid] = useState(session ? session.price !== "Free" : true);
   const [thumb, setThumb] = useState<string | null>(session?.thumbnail ?? null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [level, setLevel] = useState<LiveSession["level"]>(session?.level ?? "Beginner");
   const [modules, setModules] = useState<SessionModule[]>(
     session?.modules ?? (editing ? defaultModules : [{ title: "", duration: "" }]),
@@ -454,9 +456,9 @@ function NewSessionScreen({
           ? "Update the cover, modules, pricing or join link."
           : "Add a thumbnail, modules, pricing and the live join link."
       }
-      submitLabel={editing ? "Save changes" : "Schedule session"}
+      submitLabel={uploadingImage ? "Uploading..." : (editing ? "Save changes" : "Schedule session")}
       onClose={onClose}
-      onSubmit={handleSubmit}
+      onSubmit={uploadingImage ? () => {} : handleSubmit}
     >
       <FormSection title="Cover & title" hint="How the session appears on the Finder board.">
         <div className="grid gap-2">
@@ -467,11 +469,11 @@ function NewSessionScreen({
             className="relative grid h-48 w-full place-items-center overflow-hidden rounded-lg border border-dashed border-border bg-secondary/40 text-muted-foreground transition-colors hover:border-primary/50"
           >
             {thumb ? (
-              <img src={thumb} alt="Session thumbnail preview" className="size-full object-cover" />
+              <img src={thumb} alt="Session thumbnail preview" className={`size-full object-cover ${uploadingImage ? 'opacity-50' : ''}`} />
             ) : (
               <span className="flex flex-col items-center gap-1 text-xs">
                 <ImagePlus className="size-5" />
-                Upload cover image (16:9)
+                {uploadingImage ? "Uploading..." : "Upload cover image (16:9)"}
               </span>
             )}
           </button>
@@ -482,7 +484,40 @@ function NewSessionScreen({
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) setThumb(URL.createObjectURL(f));
+              if (!f) return;
+              
+              setUploadingImage(true);
+              const objectUrl = URL.createObjectURL(f);
+              setThumb(objectUrl); // show local preview immediately
+              
+              const reader = new FileReader();
+              reader.readAsDataURL(f);
+              reader.onload = async () => {
+                const base64 = reader.result as string;
+                try {
+                  const res = await apiRequest("/api/profile-upload/upload-logo", {
+                    method: "POST",
+                    body: JSON.stringify({ logoData: base64 })
+                  });
+                  
+                  if (res.ok) {
+                    const data = await res.json();
+                    if (data.url) {
+                      setThumb(data.url);
+                    }
+                  } else {
+                    const errData = await res.json().catch(() => ({}));
+                    toast.error(errData.msg || "Failed to upload image");
+                    setThumb(session?.thumbnail ?? null); // revert
+                  }
+                } catch (error) {
+                  console.error("Upload error", error);
+                  toast.error("Error uploading image");
+                  setThumb(session?.thumbnail ?? null); // revert
+                } finally {
+                  setUploadingImage(false);
+                }
+              };
             }}
           />
         </div>
