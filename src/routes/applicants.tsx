@@ -244,7 +244,7 @@ function ApplicantsPage() {
         </div>
       </div>
 
-      {profile && <CandidateProfileScreen applicant={profile} onClose={() => setProfile(null)} />}
+      {profile && <CandidateProfileScreen applicant={profile} onClose={() => setProfile(null)} onStageChange={handleStageChange} />}
     </div>
   );
 }

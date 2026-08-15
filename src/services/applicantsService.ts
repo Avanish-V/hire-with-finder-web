@@ -20,7 +20,7 @@ interface BackendApplicationPayload {
   job_title?: string;
   course_title?: string;
   jobs?: { title?: string; type?: string };
-  users?: { name?: string; email?: string };
+  users?: { name?: string; email?: string; oauth_provider_id?: string };
   sessions?: { title?: string };
   kind?: Applicant["kind"];
   course_id?: string;
@@ -34,6 +34,8 @@ interface BackendApplicationPayload {
   email?: string;
   guest_email?: string;
   guest_resume_url?: string;
+  applicant_id?: string;
+  user_id?: string;
   [key: string]: unknown;
 }
 
@@ -95,6 +97,7 @@ export function mapBackendApplication(
     match: typeof raw.match === "number" ? raw.match : 88,
     stage,
     email: applicantEmail,
+    externalUserId: raw.users?.oauth_provider_id || null,
   };
 }
 
@@ -187,21 +190,75 @@ export async function updateApplicantStage(
 }
 
 /**
- * Get full candidate profile
+ * Maps raw Finder API response to CandidateProfile shape
+ */
+function mapFinderProfile(data: Record<string, unknown>, applicant: Applicant): CandidateProfile {
+  const baseProfile = (data.baseProfile || {}) as Record<string, unknown>;
+  const edu = (data.education || {}) as Record<string, unknown>;
+  const contact = (data.contact || {}) as Record<string, unknown>;
+  const aura = (data.aura || {}) as Record<string, unknown>;
+
+  // Deduplicate skills by name
+  const seenSkills = new Set<string>();
+  const skills: CandidateSkill[] = ((data.skills || []) as { name: string }[])
+    .filter((s) => {
+      if (!s.name || seenSkills.has(s.name)) return false;
+      seenSkills.add(s.name);
+      return true;
+    })
+    .map((s) => ({ name: s.name, level: "Intermediate" as const }));
+
+  const genderRaw = String(baseProfile.gender || "").toUpperCase();
+  const gender: CandidateProfile["gender"] =
+    genderRaw === "MALE" ? "Male" : genderRaw === "FEMALE" ? "Female" : "Other";
+
+  return {
+    tagline: String(baseProfile.tagline || applicant.role).trim(),
+    summary: String(data.summary || baseProfile.summary || `${applicant.name} applied to ${applicant.target}.`).trim(),
+    phone: String(contact.phoneNumber || "").trim() || "+91 90000 00000",
+    gender,
+    location: "India",
+    verified: true,
+    githubUsername: data.githubUsername ? String(data.githubUsername) : undefined,
+    avatarUrl: baseProfile.image ? String(baseProfile.image) : undefined,
+    auraPoints: typeof aura.auraPoints === "number" ? aura.auraPoints : applicant.match * 12,
+    auraLevel: aura.level ? String(aura.level) : undefined,
+    education: {
+      college: String(edu.college || "Not provided"),
+      course: String(edu.course || "Not provided"),
+      specialization: String(edu.specialization || "—"),
+      courseStart: String(edu.start || "—"),
+      courseEnd: String(edu.end || "—"),
+      cgpa: String(edu.cgpa || "—"),
+    },
+    skills: skills.length > 0 ? skills : [
+      { name: "Communication", level: "Intermediate" },
+      { name: "Problem solving", level: "Intermediate" },
+    ],
+    experience: [],
+  };
+}
+
+/**
+ * Get full candidate profile — fetches from Finder API via backend proxy if externalUserId is set.
  */
 export async function getCandidateProfile(applicant: Applicant): Promise<CandidateProfile> {
-  try {
-    const res = await apiRequest(`/api/applications/${applicant.id}/profile`);
-    if (res.ok) {
-      const data = (await res.json()) as CandidateProfile;
-      if (data && data.summary) {
-        return data;
+  // 1. If user has an externalUserId, call the backend proxy which calls the Finder lambda
+  if (applicant.externalUserId) {
+    try {
+      const res = await apiRequest(`/api/finder/profile/${applicant.externalUserId}`);
+      if (res.ok) {
+        const data = await res.json() as Record<string, unknown>;
+        if (data && data.baseProfile) {
+          return mapFinderProfile(data, applicant);
+        }
       }
+    } catch (e) {
+      console.debug("Finder profile fetch failed:", e);
     }
-  } catch {
-    // Fallback to static rich profile generator
-    console.debug("Candidate profile API unavailable, using rich mock profile");
   }
 
+  // 2. Fallback to static rich profile generator
   return profileFor(applicant);
 }
+

@@ -194,6 +194,8 @@ export type Applicant = {
   match: number;
   stage: "New" | "Shortlisted" | "Interview" | "Hired" | "Rejected";
   email: string;
+  externalUserId?: string | null;
+  avatarUrl?: string | null;
 };
 
 export const applicants: Applicant[] = [
@@ -310,7 +312,9 @@ export type CandidateProfile = {
   location: string;
   verified: boolean;
   githubUsername?: string;
+  avatarUrl?: string;
   auraPoints: number;
+  auraLevel?: string;
   education: CandidateEducation;
   skills: CandidateSkill[];
   experience: { role: string; org: string; period: string }[];
