@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Plus,
   Calendar,
@@ -14,6 +14,8 @@ import {
   Link2,
   PlayCircle,
   Pencil,
+  Search,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
@@ -34,7 +36,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { sessions, defaultModules, type LiveSession, type SessionModule } from "@/lib/finder-data";
+import {
+  defaultModules,
+  type LiveSession,
+  type SessionModule,
+  type Applicant,
+} from "@/lib/finder-data";
+import {
+  getSessions,
+  createSession,
+  updateSession,
+  deleteSession,
+  getSessionDetails,
+} from "@/services/sessionsService";
 
 export const Route = createFileRoute("/sessions")({
   head: () => ({
@@ -86,31 +100,36 @@ function SessionCard({
   s,
   onOpen,
   onEdit,
+  onDelete,
 }: {
   s: LiveSession;
   onOpen: () => void;
   onEdit: () => void;
+  onDelete: () => void;
 }) {
-  const pct = Math.round((s.enrolled / s.seats) * 100);
+  const pct = Math.min(100, Math.round((s.enrolled / (s.seats || 100)) * 100));
   return (
-    <article className="panel overflow-hidden">
+    <article className="panel overflow-hidden transition-all duration-200 hover:border-primary/30">
       <div className="relative">
         <ThumbBanner s={s} />
         <div className="absolute inset-x-0 top-0 flex items-center justify-between p-3">
-          <Badge variant="secondary" className={statusTone[s.status]}>
+          <Badge variant="secondary" className={statusTone[s.status] || "bg-secondary"}>
             {s.status === "Live now" && (
               <span className="mr-1.5 inline-block size-1.5 animate-pulse rounded-full bg-live" />
             )}
             {s.status}
           </Badge>
-          <Badge variant="secondary" className={s.price === "Free" ? "bg-success/15 text-success" : ""}>
+          <Badge
+            variant="secondary"
+            className={s.price === "Free" ? "bg-success/15 text-success" : ""}
+          >
             {s.price === "Free" ? "Free" : `Paid · ${s.price}`}
           </Badge>
         </div>
       </div>
 
       <div className="p-5">
-        <h3 className="text-lg font-semibold">{s.title}</h3>
+        <h3 className="line-clamp-1 text-lg font-semibold">{s.title}</h3>
         <p className="text-sm text-muted-foreground">
           {s.host} · {s.level}
         </p>
@@ -143,11 +162,18 @@ function SessionCard({
         </button>
 
         <div className="mt-4 flex gap-2">
-          <Button className="flex-1" variant={s.status === "Live now" ? "default" : "outline"} onClick={onOpen}>
+          <Button
+            className="flex-1"
+            variant={s.status === "Live now" ? "default" : "outline"}
+            onClick={onOpen}
+          >
             {s.status === "Live now" ? "Join Meet" : "Open session"}
           </Button>
           <Button variant="ghost" size="icon" aria-label="Edit session" onClick={onEdit}>
             <Pencil className="size-4" />
+          </Button>
+          <Button variant="ghost" size="icon" aria-label="Delete session" onClick={onDelete}>
+            <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
           </Button>
           <Button variant="ghost" size="icon" aria-label="Open full screen" onClick={onOpen}>
             <Maximize2 className="size-4" />
@@ -162,29 +188,63 @@ function FullScreenSession({
   s,
   onClose,
   onEdit,
+  onDelete,
 }: {
   s: LiveSession;
   onClose: () => void;
   onEdit: () => void;
+  onDelete: () => void;
 }) {
-  const modules = s.modules ?? defaultModules;
-  const pct = Math.round((s.enrolled / s.seats) * 100);
+  const [details, setDetails] = useState<{
+    modules: SessionModule[];
+    students: Applicant[];
+  }>({
+    modules: s.modules ?? defaultModules,
+    students: peopleFor(s.title, "Session"),
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    getSessionDetails(s.id, s.title).then((data) => {
+      if (isMounted) {
+        setDetails(data);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [s.id, s.title]);
+
+  const modules = details.modules;
+  const students = details.students;
+  const pct = Math.min(100, Math.round((s.enrolled / (s.seats || 100)) * 100));
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:px-8">
-        <Badge variant="secondary" className={statusTone[s.status]}>
+        <Badge variant="secondary" className={statusTone[s.status] || "bg-secondary"}>
           {s.status === "Live now" && (
             <span className="mr-1.5 inline-block size-1.5 animate-pulse rounded-full bg-live" />
           )}
           {s.status}
         </Badge>
         <p className="truncate font-medium">{s.title}</p>
-        <Button variant="outline" size="sm" className="ml-auto" onClick={onEdit}>
-          <Pencil className="size-4" /> Edit session
-        </Button>
-        <Button variant="ghost" size="icon" aria-label="Exit full screen" onClick={onClose}>
-          <X className="size-4" />
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={onEdit}>
+            <Pencil className="size-4" /> Edit session
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-destructive hover:bg-destructive/10"
+            onClick={onDelete}
+          >
+            <Trash2 className="size-4" /> Delete
+          </Button>
+          <Button variant="ghost" size="icon" aria-label="Exit full screen" onClick={onClose}>
+            <X className="size-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 md:px-8 lg:grid-cols-[1.6fr_1fr]">
@@ -193,7 +253,10 @@ function FullScreenSession({
             <div className="relative">
               <ThumbBanner s={s} className="h-64 md:h-80" />
               <div className="absolute inset-0 grid place-items-center bg-background/30">
-                <Button size="lg" onClick={() => toast.success("Opening Meet", { description: s.meetLink })}>
+                <Button
+                  size="lg"
+                  onClick={() => toast.success("Opening Meet", { description: s.meetLink })}
+                >
                   <PlayCircle className="size-5" />
                   {s.status === "Live now" ? "Join live now" : "Open Meet room"}
                 </Button>
@@ -222,7 +285,7 @@ function FullScreenSession({
             <h2 className="text-lg font-semibold">Modules</h2>
             <ol className="mt-4 space-y-3">
               {modules.map((m, i) => (
-                <li key={m.title} className="flex gap-3 rounded-lg border border-border p-3">
+                <li key={`${m.title}-${i}`} className="flex gap-3 rounded-lg border border-border p-3">
                   <span className="grid size-7 shrink-0 place-items-center rounded-md bg-secondary text-xs font-semibold">
                     {i + 1}
                   </span>
@@ -230,7 +293,9 @@ function FullScreenSession({
                     <p className="text-sm font-medium">{m.title}</p>
                     {m.detail && <p className="text-xs text-muted-foreground">{m.detail}</p>}
                   </div>
-                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">{m.duration}</span>
+                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                    {m.duration}
+                  </span>
                 </li>
               ))}
             </ol>
@@ -241,7 +306,7 @@ function FullScreenSession({
               <div>
                 <h2 className="text-lg font-semibold">Enrolled students</h2>
                 <p className="text-sm text-muted-foreground">
-                  {s.enrolled} enrolled · {s.seats - s.enrolled} seats left
+                  {s.enrolled} enrolled · {Math.max(0, s.seats - s.enrolled)} seats left
                 </p>
               </div>
               <Button
@@ -253,12 +318,11 @@ function FullScreenSession({
               </Button>
             </div>
             <PeopleList
-              people={peopleFor(s.title, "Session")}
+              people={students}
               emptyLabel="No enrollments yet for this session."
             />
           </section>
         </div>
-
 
         <aside className="space-y-4">
           <div className="panel p-5">
@@ -291,7 +355,12 @@ function FullScreenSession({
               <span className="truncate">{s.meetLink}</span>
               <Copy className="ml-auto size-3.5" />
             </button>
-            <Button className="mt-3 w-full">Notify enrollees</Button>
+            <Button
+              className="mt-3 w-full"
+              onClick={() => toast.success("Enrollees notified of session updates")}
+            >
+              Notify enrollees
+            </Button>
           </div>
         </aside>
       </div>
@@ -302,17 +371,55 @@ function FullScreenSession({
 function NewSessionScreen({
   session,
   onClose,
+  onSubmit,
 }: {
   session?: LiveSession;
   onClose: () => void;
+  onSubmit: (data: Partial<LiveSession>) => void;
 }) {
   const editing = Boolean(session);
   const [paid, setPaid] = useState(session ? session.price !== "Free" : true);
   const [thumb, setThumb] = useState<string | null>(session?.thumbnail ?? null);
+  const [level, setLevel] = useState<LiveSession["level"]>(session?.level ?? "Beginner");
   const [modules, setModules] = useState<SessionModule[]>(
     session?.modules ?? (editing ? defaultModules : [{ title: "", duration: "" }]),
   );
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmit = () => {
+    const title = (document.getElementById("s-title") as HTMLInputElement)?.value;
+    const date = (document.getElementById("s-date") as HTMLInputElement)?.value;
+    const time = (document.getElementById("s-time") as HTMLInputElement)?.value;
+    const duration = (document.getElementById("s-duration") as HTMLInputElement)?.value;
+    const seats = parseInt(
+      (document.getElementById("s-seats") as HTMLInputElement)?.value || "100",
+      10,
+    );
+    const priceVal = (document.getElementById("s-price") as HTMLInputElement)?.value;
+    const meetLink = (document.getElementById("s-url") as HTMLInputElement)?.value;
+    const summary = (document.getElementById("s-desc") as HTMLTextAreaElement)?.value;
+
+    onSubmit({
+      title: title || "System Design for Interviews",
+      date: date || "Aug 25, 2026",
+      time: time || "7:00 PM IST",
+      duration: duration || "90 min",
+      seats: seats || 100,
+      price: paid ? priceVal || "₹499" : "Free",
+      level,
+      meetLink: meetLink || "https://meet.google.com/fdr-live",
+      summary,
+      thumbnail: thumb || undefined,
+      modules: modules.filter((m) => m.title.trim().length > 0),
+    });
+
+    onClose();
+    toast.success(editing ? "Session updated" : "Session scheduled", {
+      description: editing
+        ? "Enrollees will see the updated details."
+        : "Modules saved and join link shared with enrollees.",
+    });
+  };
 
   return (
     <FullScreenComposer
@@ -324,14 +431,7 @@ function NewSessionScreen({
       }
       submitLabel={editing ? "Save changes" : "Schedule session"}
       onClose={onClose}
-      onSubmit={() => {
-        onClose();
-        toast.success(editing ? "Session updated" : "Session scheduled", {
-          description: editing
-            ? "Enrollees will see the updated details."
-            : "Modules saved and join link shared with enrollees.",
-        });
-      }}
+      onSubmit={handleSubmit}
     >
       <FormSection title="Cover & title" hint="How the session appears on the Finder board.">
         <div className="grid gap-2">
@@ -363,7 +463,12 @@ function NewSessionScreen({
         </div>
         <div className="grid gap-2">
           <Label htmlFor="s-title">Session title</Label>
-          <Input id="s-title" placeholder="System Design for Interviews" defaultValue={session?.title} required />
+          <Input
+            id="s-title"
+            placeholder="System Design for Interviews"
+            defaultValue={session?.title}
+            required
+          />
         </div>
       </FormSection>
 
@@ -371,11 +476,11 @@ function NewSessionScreen({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="s-date">Date</Label>
-            <Input id="s-date" type="date" required />
+            <Input id="s-date" type="date" defaultValue={session?.date} required />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="s-time">Start time</Label>
-            <Input id="s-time" type="time" required />
+            <Input id="s-time" type="time" defaultValue={session?.time} required />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="s-duration">Duration</Label>
@@ -383,7 +488,7 @@ function NewSessionScreen({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="s-level">Level</Label>
-            <Select defaultValue={session?.level ?? "Beginner"}>
+            <Select defaultValue={level} onValueChange={(v) => setLevel(v as LiveSession["level"])}>
               <SelectTrigger id="s-level">
                 <SelectValue />
               </SelectTrigger>
@@ -405,7 +510,9 @@ function NewSessionScreen({
               key={paid ? "paid" : "free"}
               placeholder="₹499"
               disabled={!paid}
-              defaultValue={paid ? (session && session.price !== "Free" ? session.price : "") : "Free"}
+              defaultValue={
+                paid ? (session && session.price !== "Free" ? session.price : "") : "Free"
+              }
             />
           </div>
         </div>
@@ -495,11 +602,75 @@ function NewSessionScreen({
 }
 
 function SessionsPage() {
+  const [sessionsList, setSessionsList] = useState<LiveSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedLevel, setSelectedLevel] = useState<string>("All");
   const [composing, setComposing] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
-  const active = sessions.find((s) => s.id === openId) ?? null;
-  const editing = sessions.find((s) => s.id === editId) ?? null;
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    getSessions()
+      .then((data) => {
+        if (isMounted) {
+          setSessionsList(data);
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const active = sessionsList.find((s) => s.id === openId) ?? null;
+  const editing = sessionsList.find((s) => s.id === editId) ?? null;
+
+  const handleCreate = async (data: Partial<LiveSession>) => {
+    const created = await createSession(data);
+    setSessionsList((prev) => [created, ...prev.filter((s) => s.id !== created.id)]);
+  };
+
+  const handleUpdate = async (data: Partial<LiveSession>) => {
+    if (!editId) return;
+    const updated = await updateSession(editId, data);
+    if (updated) {
+      setSessionsList((prev) => prev.map((s) => (s.id === editId ? updated : s)));
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const targetSession = sessionsList.find((s) => s.id === id);
+    const confirmed = window.confirm(
+      `Are you sure you want to remove "${targetSession?.title || "this session"}"?`,
+    );
+    if (!confirmed) return;
+
+    await deleteSession(id);
+    setSessionsList((prev) => prev.filter((s) => s.id !== id));
+    if (openId === id) setOpenId(null);
+    if (editId === id) setEditId(null);
+    toast.success("Session removed", {
+      description: "The live skill session has been deleted.",
+    });
+  };
+
+  // Filter sessions based on search query and level filter
+  const filteredSessions = sessionsList.filter((s) => {
+    const matchesSearch =
+      searchQuery.trim() === "" ||
+      s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.host.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesLevel = selectedLevel === "All" || s.level === selectedLevel;
+
+    return matchesSearch && matchesLevel;
+  });
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -513,23 +684,80 @@ function SessionsPage() {
           </Button>
         }
       />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {sessions.map((s) => (
-          <SessionCard
-            key={s.id}
-            s={s}
-            onOpen={() => setOpenId(s.id)}
-            onEdit={() => setEditId(s.id)}
+
+      {/* Filter and Search Bar */}
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search sessions, topics or hosts…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
           />
-        ))}
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          {["All", "Beginner", "Intermediate", "Advanced"].map((lvl) => (
+            <button
+              key={lvl}
+              type="button"
+              onClick={() => setSelectedLevel(lvl)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                selectedLevel === lvl
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+              }`}
+            >
+              {lvl}
+            </button>
+          ))}
+        </div>
       </div>
-      {composing && <NewSessionScreen onClose={() => setComposing(false)} />}
-      {editing && <NewSessionScreen session={editing} onClose={() => setEditId(null)} />}
+
+      {/* Grid of Sessions */}
+      {filteredSessions.length === 0 ? (
+        <div className="panel p-12 text-center">
+          <p className="font-semibold">No live sessions found</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {searchQuery || selectedLevel !== "All"
+              ? "Try adjusting your search terms or filters."
+              : "Create your first live skill session to get started."}
+          </p>
+          <Button className="mt-4" onClick={() => setComposing(true)}>
+            <Plus className="size-4" /> Schedule session
+          </Button>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredSessions.map((s) => (
+            <SessionCard
+              key={s.id}
+              s={s}
+              onOpen={() => setOpenId(s.id)}
+              onEdit={() => setEditId(s.id)}
+              onDelete={() => handleDelete(s.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {composing && (
+        <NewSessionScreen onClose={() => setComposing(false)} onSubmit={handleCreate} />
+      )}
+      {editing && (
+        <NewSessionScreen
+          session={editing}
+          onClose={() => setEditId(null)}
+          onSubmit={handleUpdate}
+        />
+      )}
       {active && (
         <FullScreenSession
           s={active}
           onClose={() => setOpenId(null)}
           onEdit={() => setEditId(active.id)}
+          onDelete={() => handleDelete(active.id)}
         />
       )}
     </div>

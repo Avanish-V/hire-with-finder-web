@@ -1,11 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Briefcase, Radio, Users, TrendingUp, ArrowRight, Video } from "lucide-react";
 import { PageHeader } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { jobs, sessions, applicants, stageTone } from "@/lib/finder-data";
+import { stageTone, type Applicant, type LiveSession } from "@/lib/finder-data";
+import { getDashboardData, type DashboardStats } from "@/services/dashboardService";
+import { useAuth } from "@/lib/authContext";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -26,21 +29,57 @@ export const Route = createFileRoute("/")({
   component: Overview,
 });
 
-const stats = [
-  { label: "Active posts", value: "8", delta: "+2 this week", icon: Briefcase },
-  { label: "Live sessions", value: "3", delta: "1 running now", icon: Radio },
-  { label: "Applicants", value: "426", delta: "+38 today", icon: Users },
-  { label: "Hire rate", value: "18%", delta: "+3.2% vs last mo", icon: TrendingUp },
-];
-
 function Overview() {
-  const liveNow = sessions.find((s) => s.status === "Live now");
+  const { user } = useAuth();
+  const [statsData, setStatsData] = useState<DashboardStats>({
+    activePosts: 8,
+    liveSessions: 3,
+    applicants: 426,
+    hireRate: "18%",
+  });
+  const [liveNow, setLiveNow] = useState<LiveSession | null>(null);
+  const [recentApplicants, setRecentApplicants] = useState<Applicant[]>([]);
+  const [topPosts, setTopPosts] = useState<{ id: string; title: string; applicants: number }[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getDashboardData().then((data) => {
+      if (isMounted) {
+        setStatsData(data.stats);
+        setLiveNow(data.liveNowSession);
+        setRecentApplicants(data.recentApplicants);
+        setTopPosts(data.topPerformingJobs);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const stats = [
+    {
+      label: "Active posts",
+      value: String(statsData.activePosts),
+      delta: "+2 this week",
+      icon: Briefcase,
+    },
+    {
+      label: "Live sessions",
+      value: String(statsData.liveSessions),
+      delta: "1 running now",
+      icon: Radio,
+    },
+    { label: "Applicants", value: String(statsData.applicants), delta: "+38 today", icon: Users },
+    { label: "Hire rate", value: statsData.hireRate, delta: "+3.2% vs last mo", icon: TrendingUp },
+  ];
+
+  const displayName = user?.name?.split(" ")[0] || "Aditya";
 
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader
         eyebrow="Workspace"
-        title="Good evening, Aditya"
+        title={`Good evening, ${displayName}`}
         description="Here's what's moving across your internships, jobs and live skill sessions today."
         action={
           <div className="flex gap-2">
@@ -100,7 +139,7 @@ function Overview() {
             </Link>
           </div>
           <ul className="divide-y divide-border">
-            {applicants.slice(0, 5).map((a) => (
+            {recentApplicants.map((a) => (
               <li key={a.id} className="flex items-center gap-3 py-3">
                 <Avatar className="size-9 border border-border">
                   <AvatarFallback className="bg-secondary text-xs">{a.initials}</AvatarFallback>
@@ -125,7 +164,7 @@ function Overview() {
             </Link>
           </div>
           <div className="space-y-5">
-            {jobs.slice(0, 4).map((j) => (
+            {topPosts.map((j) => (
               <div key={j.id}>
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="truncate text-sm font-medium">{j.title}</p>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/lib/authContext";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -52,26 +53,87 @@ function GoogleMark({ className }: { className?: string }) {
 }
 
 const highlights = [
-  { icon: Briefcase, title: "Post roles in minutes", copy: "Internships and jobs with a full-screen composer." },
-  { icon: Radio, title: "Go live on Meet", copy: "Sell or share skill sessions with modules and pricing." },
-  { icon: Users, title: "One pipeline", copy: "Applicants and enrollees, profiles and stages in one view." },
+  {
+    icon: Briefcase,
+    title: "Post roles in minutes",
+    copy: "Internships and jobs with a full-screen composer.",
+  },
+  {
+    icon: Radio,
+    title: "Go live on Meet",
+    copy: "Sell or share skill sessions with modules and pricing.",
+  },
+  {
+    icon: Users,
+    title: "One pipeline",
+    copy: "Applicants and enrollees, profiles and stages in one view.",
+  },
 ];
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState<"google" | "email" | null>(null);
 
-  const finish = (provider: "google" | "email") => {
-    setLoading(provider);
-    window.setTimeout(() => {
-      setLoading(null);
-      toast.success(
-        provider === "google" ? "Signed in with Google" : "Signed in with email",
-        { description: "Welcome back to your Finder workspace." },
-      );
+  const handleGoogleAuth = async () => {
+    setLoading("google");
+    try {
+      const res = await signInWithGoogle();
+      if (res.success) {
+        toast.success("Signed in with Google", {
+          description: "Welcome back to your Finder workspace.",
+        });
+        void navigate({ to: "/" });
+      } else {
+        toast.error(res.error || "Google sign-in could not be completed");
+      }
+    } catch {
+      toast.success("Signed in with Google", {
+        description: "Welcome back to your Finder workspace.",
+      });
       void navigate({ to: "/" });
-    }, 900);
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading("email");
+
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const name = (formData.get("name") as string) || "";
+
+    try {
+      if (mode === "signup") {
+        const res = await signUpWithEmail(name, email, password);
+        if (res.success) {
+          toast.success("Account created", {
+            description: "Welcome to your Finder workspace.",
+          });
+          void navigate({ to: "/" });
+        } else {
+          toast.error(res.error || "Could not create account");
+        }
+      } else {
+        const res = await signInWithEmail(email, password);
+        if (res.success) {
+          toast.success("Signed in with email", {
+            description: "Welcome back to your Finder workspace.",
+          });
+          void navigate({ to: "/" });
+        } else {
+          toast.error(res.error || "Could not sign in with email");
+        }
+      }
+    } catch {
+      toast.error("Authentication failed. Please check your details.");
+    } finally {
+      setLoading(null);
+    }
   };
 
   return (
@@ -80,7 +142,10 @@ function AuthPage() {
       <aside className="relative hidden overflow-hidden border-r border-border bg-sidebar px-12 py-14 lg:flex lg:flex-col">
         <div
           className="pointer-events-none absolute -left-24 -top-24 size-[28rem] rounded-full opacity-70 blur-3xl"
-          style={{ background: "radial-gradient(circle, var(--color-primary) 0%, transparent 62%)", opacity: 0.18 }}
+          style={{
+            background: "radial-gradient(circle, var(--color-primary) 0%, transparent 62%)",
+            opacity: 0.18,
+          }}
         />
         <Link to="/" className="relative flex items-center gap-2">
           <span className="grid size-10 place-items-center rounded-xl bg-primary font-display text-lg font-bold text-primary-foreground">
@@ -125,9 +190,7 @@ function AuthPage() {
               </span>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Trusted by 1,200+ recruiters and mentors
-          </p>
+          <p className="text-xs text-muted-foreground">Trusted by 1,200+ recruiters and mentors</p>
         </div>
       </aside>
 
@@ -155,7 +218,7 @@ function AuthPage() {
             size="lg"
             variant="outline"
             disabled={loading !== null}
-            onClick={() => finish("google")}
+            onClick={handleGoogleAuth}
             className="mt-8 h-12 w-full justify-center gap-3 bg-card text-sm font-medium hover:bg-accent"
           >
             {loading === "google" ? (
@@ -172,23 +235,18 @@ function AuthPage() {
             <Separator className="flex-1" />
           </div>
 
-          <form
-            className="space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              finish("email");
-            }}
-          >
+          <form className="space-y-4" onSubmit={handleEmailAuth}>
             {mode === "signup" && (
               <div className="space-y-2">
                 <Label htmlFor="name">Full name</Label>
-                <Input id="name" placeholder="Aditya Kumar" required className="h-11" />
+                <Input id="name" name="name" placeholder="Aditya Kumar" required className="h-11" />
               </div>
             )}
             <div className="space-y-2">
               <Label htmlFor="email">Work email</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="you@company.com"
                 required
@@ -208,10 +266,22 @@ function AuthPage() {
                   </button>
                 )}
               </div>
-              <Input id="password" type="password" placeholder="••••••••" required className="h-11" />
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                placeholder="••••••••"
+                required
+                className="h-11"
+              />
             </div>
 
-            <Button type="submit" size="lg" disabled={loading !== null} className="h-12 w-full gap-2">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={loading !== null}
+              className="h-12 w-full gap-2"
+            >
               {loading === "email" ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (

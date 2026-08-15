@@ -58,7 +58,8 @@
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --shadow-panel: var(--panel-shadow);
-  --shadow-glow: 0 0 0 1px color-mix(in oklab, var(--primary) 25%, transparent),
+  --shadow-glow:
+    0 0 0 1px color-mix(in oklab, var(--primary) 25%, transparent),
     0 12px 32px -14px color-mix(in oklab, var(--primary) 45%, transparent);
 }
 

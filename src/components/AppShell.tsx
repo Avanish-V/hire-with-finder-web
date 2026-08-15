@@ -1,12 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  LayoutDashboard,
-  Briefcase,
-  Radio,
-  Users,
-  Search,
-  Bell,
-} from "lucide-react";
+import { LayoutDashboard, Briefcase, Radio, Users, Search, Bell } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";

@@ -33,7 +33,9 @@ export function CandidateProfileScreen({
             >
               <Mail className="size-4" /> Contact
             </Button>
-            <Button onClick={() => toast.success(`${applicant.name} shortlisted`)}>Shortlist</Button>
+            <Button onClick={() => toast.success(`${applicant.name} shortlisted`)}>
+              Shortlist
+            </Button>
           </div>
         </div>
       </div>
@@ -95,10 +97,7 @@ export function CandidateProfileScreen({
             <h2 className="text-lg font-semibold">Skills</h2>
             <div className="mt-4 flex flex-wrap gap-2">
               {p.skills.map((s) => (
-                <span
-                  key={s.name}
-                  className="rounded-full bg-secondary px-3 py-1.5 text-xs"
-                >
+                <span key={s.name} className="rounded-full bg-secondary px-3 py-1.5 text-xs">
                   {s.name} · <span className="text-muted-foreground">{s.level}</span>
                 </span>
               ))}

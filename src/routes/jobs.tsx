@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MapPin, Users, Plus, MoreHorizontal, IndianRupee, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
@@ -18,7 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { jobs, type Job } from "@/lib/finder-data";
+import { type Job } from "@/lib/finder-data";
+import { getJobs, createJob, updateJob } from "@/services/jobsService";
+import { getJobApplicants } from "@/services/applicantsService";
 
 export const Route = createFileRoute("/jobs")({
   head: () => ({
@@ -32,7 +34,7 @@ export const Route = createFileRoute("/jobs")({
       { property: "og:title", content: "Jobs & Internships — Finder" },
       {
         property: "og:description",
-        content: "Create and manage internship and job postings in Finder.",
+        content: "Openings and candidate pipeline in one board.",
       },
     ],
   }),
@@ -105,8 +107,25 @@ function JobCard({
 }
 
 function JobApplicantsScreen({ job, onClose }: { job: Job; onClose: () => void }) {
-  const people = peopleFor(job.title, "Job");
+  const [people, setPeople] = useState(() => peopleFor(job.title, "Job"));
+  const [loading, setLoading] = useState(true);
   const stages = ["New", "Shortlisted", "Interview", "Hired", "Rejected"] as const;
+
+  useEffect(() => {
+    let isMounted = true;
+    getJobApplicants(job.id, job.title)
+      .then((data) => {
+        if (isMounted) {
+          setPeople(data);
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [job.id, job.title]);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
@@ -141,7 +160,11 @@ function JobApplicantsScreen({ job, onClose }: { job: Job; onClose: () => void }
             <h2 className="text-lg font-semibold">
               {people.length} candidate{people.length === 1 ? "" : "s"}
             </h2>
-            <Button variant="outline" size="sm" onClick={() => toast.success("Export started (CSV)")}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => toast.success("Export started (CSV)")}
+            >
               Export
             </Button>
           </div>
@@ -152,8 +175,47 @@ function JobApplicantsScreen({ job, onClose }: { job: Job; onClose: () => void }
   );
 }
 
-function PostJobScreen({ job, onClose }: { job?: Job; onClose: () => void }) {
+function PostJobScreen({
+  job,
+  onClose,
+  onSubmit,
+}: {
+  job?: Job;
+  onClose: () => void;
+  onSubmit: (data: Partial<Job>) => void;
+}) {
   const editing = Boolean(job);
+  const [selectedType, setSelectedType] = useState<Job["type"]>(job?.type ?? "Internship");
+
+  const handleSubmit = () => {
+    const title = (document.getElementById("job-title") as HTMLInputElement)?.value;
+    const company = (document.getElementById("job-company") as HTMLInputElement)?.value;
+    const location = (document.getElementById("job-location") as HTMLInputElement)?.value;
+    const stipend = (document.getElementById("job-pay") as HTMLInputElement)?.value;
+    const skillsRaw = (document.getElementById("job-skills") as HTMLInputElement)?.value;
+    const desc = (document.getElementById("job-desc") as HTMLTextAreaElement)?.value;
+
+    const skills = skillsRaw ? skillsRaw.split(",").map((s) => s.trim()) : ["React"];
+
+    onSubmit({
+      title: title || "Frontend Engineering Intern",
+      company: company || "Northwind Labs",
+      type: selectedType,
+      location: location || "Remote · India",
+      stipend: stipend || "₹25,000 / mo",
+      skills,
+      status: "Open",
+      description: desc,
+    } as any);
+
+    onClose();
+    toast.success(editing ? "Role updated" : "Role posted", {
+      description: editing
+        ? "Your changes are live on the listing."
+        : "Your listing is now live on Finder.",
+    });
+  };
+
   return (
     <FullScreenComposer
       title={editing ? `Edit · ${job!.title}` : "Post an internship or job"}
@@ -164,28 +226,34 @@ function PostJobScreen({ job, onClose }: { job?: Job; onClose: () => void }) {
       }
       submitLabel={editing ? "Save changes" : "Publish role"}
       onClose={onClose}
-      onSubmit={() => {
-        onClose();
-        toast.success(editing ? "Role updated" : "Role posted", {
-          description: editing
-            ? "Your changes are live on the listing."
-            : "Your listing is now live on Finder.",
-        });
-      }}
+      onSubmit={handleSubmit}
     >
       <FormSection title="Role basics" hint="What you're hiring for and where.">
         <div className="grid gap-2">
           <Label htmlFor="job-title">Role title</Label>
-          <Input id="job-title" placeholder="Frontend Engineering Intern" defaultValue={job?.title} required />
+          <Input
+            id="job-title"
+            placeholder="Frontend Engineering Intern"
+            defaultValue={job?.title}
+            required
+          />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="job-company">Company</Label>
-            <Input id="job-company" placeholder="Northwind Labs" defaultValue={job?.company} required />
+            <Input
+              id="job-company"
+              placeholder="Northwind Labs"
+              defaultValue={job?.company}
+              required
+            />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="job-type">Type</Label>
-            <Select defaultValue={job?.type ?? "Internship"}>
+            <Select
+              defaultValue={selectedType}
+              onValueChange={(v) => setSelectedType(v as Job["type"])}
+            >
               <SelectTrigger id="job-type">
                 <SelectValue />
               </SelectTrigger>
@@ -211,7 +279,11 @@ function PostJobScreen({ job, onClose }: { job?: Job; onClose: () => void }) {
       <FormSection title="Requirements" hint="Skills and the detail candidates need.">
         <div className="grid gap-2">
           <Label htmlFor="job-skills">Required skills</Label>
-          <Input id="job-skills" placeholder="React, TypeScript, Tailwind" defaultValue={job?.skills.join(", ")} />
+          <Input
+            id="job-skills"
+            placeholder="React, TypeScript, Tailwind"
+            defaultValue={job?.skills.join(", ")}
+          />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="job-desc">Description</Label>
@@ -223,17 +295,44 @@ function PostJobScreen({ job, onClose }: { job?: Job; onClose: () => void }) {
 }
 
 function JobsPage() {
+  const [jobsList, setJobsList] = useState<Job[]>([]);
   const [composing, setComposing] = useState(false);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
-  const editingJob = jobs.find((j) => j.id === editingJobId) ?? null;
   const [applicantsJobId, setApplicantsJobId] = useState<string | null>(null);
-  const activeJob = jobs.find((j) => j.id === applicantsJobId) ?? null;
+
+  useEffect(() => {
+    let isMounted = true;
+    getJobs().then((data) => {
+      if (isMounted) {
+        setJobsList(data);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const editingJob = jobsList.find((j) => j.id === editingJobId) ?? null;
+  const activeJob = jobsList.find((j) => j.id === applicantsJobId) ?? null;
+
+  const handleCreate = async (data: Partial<Job>) => {
+    const created = await createJob(data);
+    setJobsList((prev) => [created, ...prev]);
+  };
+
+  const handleUpdate = async (data: Partial<Job>) => {
+    if (!editingJobId) return;
+    const updated = await updateJob(editingJobId, data);
+    if (updated) {
+      setJobsList((prev) => prev.map((j) => (j.id === editingJobId ? updated : j)));
+    }
+  };
 
   const groups = {
-    all: jobs,
-    internship: jobs.filter((j) => j.type === "Internship"),
-    open: jobs.filter((j) => j.status === "Open"),
-    draft: jobs.filter((j) => j.status === "Draft"),
+    all: jobsList,
+    internship: jobsList.filter((j) => j.type === "Internship"),
+    open: jobsList.filter((j) => j.status === "Open"),
+    draft: jobsList.filter((j) => j.status === "Draft"),
   };
 
   return (
@@ -272,9 +371,13 @@ function JobsPage() {
         ))}
       </Tabs>
 
-      {composing && <PostJobScreen onClose={() => setComposing(false)} />}
+      {composing && <PostJobScreen onClose={() => setComposing(false)} onSubmit={handleCreate} />}
       {editingJob && (
-        <PostJobScreen job={editingJob} onClose={() => setEditingJobId(null)} />
+        <PostJobScreen
+          job={editingJob}
+          onClose={() => setEditingJobId(null)}
+          onSubmit={handleUpdate}
+        />
       )}
       {activeJob && (
         <JobApplicantsScreen job={activeJob} onClose={() => setApplicantsJobId(null)} />

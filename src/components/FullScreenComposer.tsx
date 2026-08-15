@@ -32,7 +32,9 @@ export function FullScreenComposer({
             </Button>
             <div className="min-w-0">
               <p className="truncate font-medium">{title}</p>
-              <p className="hidden truncate text-xs text-muted-foreground sm:block">{description}</p>
+              <p className="hidden truncate text-xs text-muted-foreground sm:block">
+                {description}
+              </p>
             </div>
             <div className="ml-auto flex shrink-0 gap-2">
               <Button variant="ghost" type="button" onClick={onClose}>

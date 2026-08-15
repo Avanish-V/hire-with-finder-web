@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, Download, Mail, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
@@ -23,8 +23,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { applicants, stageTone, type Applicant } from "@/lib/finder-data";
+import { stageTone, type Applicant } from "@/lib/finder-data";
 import { CandidateProfileScreen } from "@/components/CandidateProfile";
+import { getApplicants, updateApplicantStage } from "@/services/applicantsService";
 
 export const Route = createFileRoute("/applicants")({
   head: () => ({
@@ -48,21 +49,48 @@ export const Route = createFileRoute("/applicants")({
 const stages: Applicant["stage"][] = ["New", "Shortlisted", "Interview", "Hired", "Rejected"];
 
 function ApplicantsPage() {
+  const [applicantsList, setApplicantsList] = useState<Applicant[]>([]);
   const [kind, setKind] = useState<"all" | "Job" | "Session">("all");
   const [stage, setStage] = useState<string>("all");
   const [query, setQuery] = useState("");
   const [profile, setProfile] = useState<Applicant | null>(null);
 
+  useEffect(() => {
+    let isMounted = true;
+    getApplicants().then((data) => {
+      if (isMounted) {
+        setApplicantsList(data);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleStageChange = async (applicant: Applicant, newStage: Applicant["stage"]) => {
+    await updateApplicantStage(applicant.id, newStage);
+    setApplicantsList((prev) =>
+      prev.map((a) => (a.id === applicant.id ? { ...a, stage: newStage } : a)),
+    );
+    if (newStage === "Shortlisted") {
+      toast.success(`${applicant.name} shortlisted`);
+    } else if (newStage === "Rejected") {
+      toast(`${applicant.name} moved to rejected`);
+    } else {
+      toast.success(`Moved ${applicant.name} to ${newStage}`);
+    }
+  };
+
   const rows = useMemo(
     () =>
-      applicants.filter(
+      applicantsList.filter(
         (a) =>
           (kind === "all" || a.kind === kind) &&
           (stage === "all" || a.stage === stage) &&
           (a.name.toLowerCase().includes(query.toLowerCase()) ||
             a.target.toLowerCase().includes(query.toLowerCase())),
       ),
-    [kind, stage, query],
+    [applicantsList, kind, stage, query],
   );
 
   return (
@@ -83,7 +111,7 @@ function ApplicantsPage() {
           <div key={s} className="panel p-4">
             <p className="text-eyebrow">{s}</p>
             <p className="mt-2 font-display text-2xl font-semibold">
-              {applicants.filter((a) => a.stage === s).length}
+              {applicantsList.filter((a) => a.stage === s).length}
             </p>
           </div>
         ))}
@@ -185,7 +213,7 @@ function ApplicantsPage() {
                         variant="ghost"
                         size="icon"
                         aria-label={`Shortlist ${a.name}`}
-                        onClick={() => toast.success(`${a.name} shortlisted`)}
+                        onClick={() => handleStageChange(a, "Shortlisted")}
                       >
                         <Check className="size-4 text-success" />
                       </Button>
@@ -193,7 +221,7 @@ function ApplicantsPage() {
                         variant="ghost"
                         size="icon"
                         aria-label={`Reject ${a.name}`}
-                        onClick={() => toast(`${a.name} moved to rejected`)}
+                        onClick={() => handleStageChange(a, "Rejected")}
                       >
                         <X className="size-4 text-destructive" />
                       </Button>
@@ -203,7 +231,10 @@ function ApplicantsPage() {
               ))}
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={7}
+                    className="py-10 text-center text-sm text-muted-foreground"
+                  >
                     No applicants match these filters.
                   </TableCell>
                 </TableRow>
@@ -213,9 +244,7 @@ function ApplicantsPage() {
         </div>
       </div>
 
-      {profile && (
-        <CandidateProfileScreen applicant={profile} onClose={() => setProfile(null)} />
-      )}
+      {profile && <CandidateProfileScreen applicant={profile} onClose={() => setProfile(null)} />}
     </div>
   );
 }
