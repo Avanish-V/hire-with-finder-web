@@ -48,6 +48,7 @@ import {
   updateSession,
   deleteSession,
   getSessionDetails,
+  enrollInSession,
 } from "@/services/sessionsService";
 
 export const Route = createFileRoute("/sessions")({
@@ -202,6 +203,8 @@ function FullScreenSession({
     modules: s.modules ?? defaultModules,
     students: peopleFor(s.title, "Session"),
   });
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrolled, setEnrolled] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -214,6 +217,20 @@ function FullScreenSession({
       isMounted = false;
     };
   }, [s.id, s.title]);
+
+  const handleEnroll = async () => {
+    setEnrolling(true);
+    const result = await enrollInSession(s.id);
+    setEnrolling(false);
+    if (result.success) {
+      setEnrolled(true);
+      toast.success("Enrolled successfully!", {
+        description: `You are now enrolled in "${s.title}".`,
+      });
+    } else {
+      toast.error(result.message);
+    }
+  };
 
   const modules = details.modules;
   const students = details.students;
@@ -357,6 +374,14 @@ function FullScreenSession({
             </button>
             <Button
               className="mt-3 w-full"
+              disabled={enrolling || enrolled}
+              onClick={handleEnroll}
+            >
+              {enrolled ? <><Check className="size-4 mr-1" /> Enrolled</> : enrolling ? "Enrolling…" : "Enroll in session"}
+            </Button>
+            <Button
+              variant="outline"
+              className="mt-2 w-full"
               onClick={() => toast.success("Enrollees notified of session updates")}
             >
               Notify enrollees

@@ -420,3 +420,32 @@ export async function deleteSession(id: string): Promise<boolean> {
   return true;
 }
 
+/**
+ * Enroll the authenticated user in a course/session
+ * POST /api/courses/:id/enroll
+ * Returns { success, message }
+ */
+export async function enrollInSession(
+  sessionId: string,
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await apiRequest(`/api/courses/${sessionId}/enroll`, {
+      method: "POST",
+    });
+
+    if (res.status === 201 || res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { success: true, message: data.msg || "Enrolled successfully" };
+    }
+
+    if (res.status === 400) {
+      const data = await res.json().catch(() => ({}));
+      return { success: false, message: data.msg || "Already enrolled" };
+    }
+
+    return { success: false, message: "Enrollment failed. Please try again." };
+  } catch (error) {
+    console.debug(`POST /api/courses/${sessionId}/enroll error:`, error);
+    return { success: false, message: "Could not reach server. Please check your connection." };
+  }
+}
