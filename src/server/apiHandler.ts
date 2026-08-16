@@ -1,6 +1,6 @@
 import { jobs, sessions, applicants } from "../lib/finder-data";
 
-const BACKEND_URL = process.env.BACKEND_URL || "http://127.0.0.1:8787";
+const BACKEND_URL = process.env.BACKEND_URL || (process.env.NODE_ENV === "production" ? "https://recrutment-backend-avanish.onrender.com" : "http://127.0.0.1:8787");
 
 let serverJobs = [...jobs];
 let serverSessions = [...sessions];
@@ -38,7 +38,7 @@ function json(data: unknown, status = 200) {
 
 /**
  * Handles incoming /api/* requests.
- * Attempts to forward to real backend on http://localhost:8787 first.
+ * Attempts to forward to real backend (local or prod) first.
  * If backend is offline or returns error, serves seamless mock responses with status 200 OK.
  */
 export async function handleApiRequest(request: Request): Promise<Response | null> {

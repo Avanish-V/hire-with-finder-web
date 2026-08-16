@@ -1,6 +1,6 @@
 import { supabase } from "./supabaseClient";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8787";
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://127.0.0.1:8787" : "https://recrutment-backend-avanish.onrender.com");
 
 export interface User {
   id?: string;
@@ -61,7 +61,7 @@ export const clearAuthStorage = () => {
 };
 
 /**
- * Build request URL pointing directly to backend port 8787
+ * Build request URL pointing directly to backend
  */
 function buildUrl(endpoint: string): string {
   if (endpoint.startsWith("http://") || endpoint.startsWith("https://")) {
@@ -73,7 +73,7 @@ function buildUrl(endpoint: string): string {
 }
 
 /**
- * Make an authenticated API request directly to backend http://localhost:8787
+ * Make an authenticated API request directly to backend
  */
 export const apiRequest = async (
   endpoint: string,
@@ -117,7 +117,7 @@ export const apiRequest = async (
     // Return synthetic response so service layer gracefully uses static fallback
     return new Response(
       JSON.stringify({
-        msg: "Backend service unreachable on port 8787, using fallback",
+        msg: "Backend service unreachable, using fallback",
         error: String(networkError),
       }),
       {
