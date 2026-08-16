@@ -57,6 +57,8 @@ export interface BackendStudentPayload {
   completed_lessons?: number;
   total_lessons?: number;
   last_active?: string;
+  externalUserId?: string | null;
+  oauth_provider_id?: string | null;
 }
 
 /**
@@ -236,6 +238,7 @@ export async function getSessionDetails(
             match: s.progress || 100,
             stage: (s.status as Applicant["stage"]) || "Shortlisted",
             email: s.email || "student@example.com",
+            externalUserId: s.externalUserId || s.oauth_provider_id || null,
           };
         });
       }

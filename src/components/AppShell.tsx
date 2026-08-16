@@ -49,16 +49,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-
-        <div className="panel mt-6 p-4">
-          <p className="text-eyebrow">Hiring plan</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            8 of 10 active posts used this month.
-          </p>
-          <Button size="sm" className="mt-3 w-full">
-            Upgrade workspace
-          </Button>
-        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
