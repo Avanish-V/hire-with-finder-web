@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { type Job } from "@/lib/finder-data";
+import { type Job, JOB_TYPES, JOB_STATUSES } from "@/lib/finder-data";
 import { getJobs, createJob, updateJob } from "@/services/jobsService";
 import { getJobApplicants } from "@/services/applicantsService";
 
@@ -330,9 +330,10 @@ function JobsPage() {
 
   const groups = {
     all: jobsList,
-    internship: jobsList.filter((j) => j.type === "Internship"),
-    open: jobsList.filter((j) => j.status === "Open"),
-    draft: jobsList.filter((j) => j.status === "Draft"),
+    full_time: jobsList.filter((j) => j.type === JOB_TYPES.FULL_TIME),
+    internship: jobsList.filter((j) => j.type === JOB_TYPES.INTERNSHIP),
+    open: jobsList.filter((j) => j.status === JOB_STATUSES.OPEN),
+    draft: jobsList.filter((j) => j.status === JOB_STATUSES.DRAFT),
   };
 
   return (
@@ -351,6 +352,7 @@ function JobsPage() {
       <Tabs defaultValue="all">
         <TabsList>
           <TabsTrigger value="all">All ({groups.all.length})</TabsTrigger>
+          <TabsTrigger value="full_time">Full-time ({groups.full_time.length})</TabsTrigger>
           <TabsTrigger value="internship">Internships ({groups.internship.length})</TabsTrigger>
           <TabsTrigger value="open">Open ({groups.open.length})</TabsTrigger>
           <TabsTrigger value="draft">Drafts ({groups.draft.length})</TabsTrigger>

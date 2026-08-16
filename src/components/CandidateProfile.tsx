@@ -158,18 +158,6 @@ export function CandidateProfileScreen({
 
         {/* Sidebar */}
         <aside className="space-y-4">
-          {/* Match score */}
-          <div className="panel p-5">
-            <p className="text-eyebrow">Match score</p>
-            <p className="mt-1 font-display text-3xl font-semibold text-primary">
-              {applicant.match}%
-            </p>
-            <Progress value={applicant.match} className="mt-3 h-1.5" />
-            <p className="mt-3 text-xs text-muted-foreground">
-              Applied {applicant.applied} to {applicant.target}
-            </p>
-          </div>
-
           {/* Aura Points */}
           <div className="panel p-5">
             <p className="text-eyebrow">Aura points</p>

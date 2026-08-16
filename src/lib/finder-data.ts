@@ -1,4 +1,18 @@
-export type JobType = "Internship" | "Full-time" | "Part-time" | "Contract";
+export const JOB_TYPES = {
+  INTERNSHIP: "Internship",
+  FULL_TIME: "Full-time",
+  PART_TIME: "Part-time",
+  CONTRACT: "Contract",
+} as const;
+
+export const JOB_STATUSES = {
+  OPEN: "Open",
+  CLOSED: "Closed",
+  DRAFT: "Draft",
+} as const;
+
+export type JobType = typeof JOB_TYPES[keyof typeof JOB_TYPES];
+export type JobStatus = typeof JOB_STATUSES[keyof typeof JOB_STATUSES];
 
 export type Job = {
   id: string;
@@ -10,7 +24,7 @@ export type Job = {
   posted: string;
   applicants: number;
   skills: string[];
-  status: "Open" | "Closed" | "Draft";
+  status: JobStatus;
 };
 
 export const jobs: Job[] = []; // TODO: Handle cases where jobs are not available from API
