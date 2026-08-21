@@ -178,7 +178,8 @@ function ProfilePage() {
         <div className="min-w-[12rem] flex-1">
           <h2 className="text-xl font-semibold">{profile.name}</h2>
           <p className="text-sm text-muted-foreground">
-            {profile.role === "recruiter" ? "Talent Lead" : profile.role} · {profile.company}
+            {profile.role === "recruiter" ? "Talent Lead" : profile.role} ·{" "}
+            {profile.companyProfile.name || profile.company}
           </p>
         </div>
         <div className="flex gap-6 text-center">
