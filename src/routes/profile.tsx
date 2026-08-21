@@ -17,7 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getProfile, updateProfile, type UserProfile } from "@/services/profileService";
+import {
+  getProfile,
+  updateProfile,
+  emptyCompanyProfile,
+  type UserProfile,
+  type CompanyProfile,
+} from "@/services/profileService";
+import { uploadToS3 } from "@/services/mediaService";
 import { useAuth } from "@/lib/authContext";
 
 export const Route = createFileRoute("/profile")({
