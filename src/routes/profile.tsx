@@ -71,6 +71,31 @@ function ProfilePage() {
 
   const [newSkill, setNewSkill] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState<"avatar" | "logo" | null>(null);
+
+  const setCompany = (patch: Partial<CompanyProfile>) =>
+    setProfile((prev) => ({ ...prev, companyProfile: { ...prev.companyProfile, ...patch } }));
+
+  const handleImageUpload = async (file: File, kind: "avatar" | "logo") => {
+    setUploading(kind);
+    const localPreview = URL.createObjectURL(file);
+    try {
+      const url = await uploadToS3(
+        file,
+        kind === "avatar" ? "recruiters/avatars" : "companies/logos",
+      );
+      const finalUrl = url || localPreview;
+      if (kind === "avatar") setProfile((prev) => ({ ...prev, avatarUrl: finalUrl }));
+      else setCompany({ logoUrl: finalUrl });
+      toast.success(kind === "avatar" ? "Profile photo updated" : "Company logo updated");
+    } catch {
+      if (kind === "avatar") setProfile((prev) => ({ ...prev, avatarUrl: localPreview }));
+      else setCompany({ logoUrl: localPreview });
+      toast("Image preview set locally");
+    } finally {
+      setUploading(null);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
