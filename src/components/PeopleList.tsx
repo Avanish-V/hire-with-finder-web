@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Mail, Check, X } from "lucide-react";
+import { Mail, Check, X, BadgeCheck } from "lucide-react";
 import { toast } from "sonner";
 import { CandidateProfileScreen } from "@/components/CandidateProfile";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { applicants, stageTone, type Applicant } from "@/lib/finder-data";
@@ -31,10 +31,18 @@ export function PeopleList({ people, emptyLabel }: { people: Applicant[]; emptyL
             className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3"
           >
             <Avatar className="size-9 border border-border">
+              {p.avatarUrl && <AvatarImage src={p.avatarUrl} alt={p.name} />}
               <AvatarFallback className="bg-secondary text-xs">{p.initials}</AvatarFallback>
             </Avatar>
             <button type="button" className="min-w-0 text-left" onClick={() => setOpen(p)}>
-              <p className="truncate text-sm font-medium hover:text-primary">{p.name}</p>
+              <p className="flex items-center gap-1.5 truncate text-sm font-medium hover:text-primary">
+                {p.name}
+                {p.externalUserId && (
+                  <span title="Verified Finder user">
+                    <BadgeCheck className="size-3.5 shrink-0 text-primary" />
+                  </span>
+                )}
+              </p>
               <p className="truncate text-xs text-muted-foreground">
                 {p.role} · {p.email}
               </p>

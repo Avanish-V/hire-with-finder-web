@@ -4,6 +4,7 @@ import {
   profileFor,
   type Applicant,
   type CandidateProfile,
+  type CandidateSkill,
 } from "@/lib/finder-data";
 
 let inMemoryApplicants: Applicant[] = [...staticApplicants];
@@ -123,26 +124,35 @@ export async function getApplicants(): Promise<Applicant[]> {
 }
 
 /**
- * Fetch applicants for a specific job from GET /api/jobs/:id/applicants
+ * Fetch applicants for a specific job from GET /api/jobs/:id/applications
  */
 export async function getJobApplicants(
   jobId: string,
   jobTitle: string,
 ): Promise<Applicant[]> {
   try {
-    const res = await apiRequest(`/api/jobs/${jobId}/applicants`);
+    // Backend endpoint is /applications not /applicants
+    const res = await apiRequest(`/api/jobs/${jobId}/applications`);
+    console.log(`Fetching applications for job ${jobId}:`, res.status);
+    
     if (res.ok) {
       const data = (await res.json()) as BackendApplicationPayload[];
+      console.log(`Applications data for job ${jobId}:`, data);
+      
       if (Array.isArray(data)) {
         if (data.length > 0) {
           return data.map((d) => mapBackendApplication(d, jobTitle));
         }
         // If the backend has 0 applicants for this job, return empty list
+        console.log(`No applications found for job ${jobId}`);
         return [];
       }
+    } else {
+      console.warn(`Failed to fetch applications for job ${jobId}: ${res.status}`);
     }
   } catch (error) {
-    console.debug(`GET /api/jobs/${jobId}/applicants error, falling back:`, error);
+    console.error(`GET /api/jobs/${jobId}/applications error:`, error);
+    console.debug(`Falling back to static applicants for "${jobTitle}"`);
   }
 
   // Fallback to static mock applicants matching the job title
@@ -239,12 +249,43 @@ function mapFinderProfile(data: Record<string, unknown>, applicant: Applicant): 
   };
 }
 
+const FINDER_LAMBDA_BASE = "https://iv52bugou5xppexnhffgj53hwq0rorrh.lambda-url.ap-south-1.on.aws";
+
 /**
- * Get full candidate profile — fetches from Finder API via backend proxy if externalUserId is set.
+ * Fetch raw Finder user profile directly from the Lambda /users/view/:userId endpoint.
+ * This is a public endpoint — no auth needed.
+ */
+export async function fetchFinderUserProfile(userId: string): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetch(`${FINDER_LAMBDA_BASE}/users/view/${encodeURIComponent(userId)}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (res.ok) {
+      const data = await res.json() as Record<string, unknown>;
+      if (data && data.baseProfile) return data;
+    }
+  } catch (e) {
+    console.debug("Direct Finder Lambda profile fetch failed:", e);
+  }
+  return null;
+}
+
+/**
+ * Get full candidate profile — tries:
+ * 1. Direct Finder Lambda call  (public, no auth)
+ * 2. Backend proxy /api/finder/profile/:id
+ * 3. Static profile fallback
  */
 export async function getCandidateProfile(applicant: Applicant): Promise<CandidateProfile> {
-  // 1. If user has an externalUserId, call the backend proxy which calls the Finder lambda
   if (applicant.externalUserId) {
+    // 1. Direct Finder Lambda call
+    const directData = await fetchFinderUserProfile(applicant.externalUserId);
+    if (directData) {
+      return mapFinderProfile(directData, applicant);
+    }
+
+    // 2. Backend proxy fallback
     try {
       const res = await apiRequest(`/api/finder/profile/${applicant.externalUserId}`);
       if (res.ok) {
@@ -254,11 +295,11 @@ export async function getCandidateProfile(applicant: Applicant): Promise<Candida
         }
       }
     } catch (e) {
-      console.debug("Finder profile fetch failed:", e);
+      console.debug("Backend Finder proxy fetch failed:", e);
     }
   }
 
-  // 2. Fallback to static rich profile generator
+  // 3. Fallback to static rich profile generator
   return profileFor(applicant);
 }
 

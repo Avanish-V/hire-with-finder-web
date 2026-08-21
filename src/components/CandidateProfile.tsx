@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, Mail, Phone, MapPin, Github, BadgeCheck, GraduationCap, Sparkles, Loader2 } from "lucide-react";
+import { X, Mail, Phone, MapPin, Github, BadgeCheck, GraduationCap, Sparkles, Loader2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +54,21 @@ export function CandidateProfileScreen({
           </Badge>
           {loading && <Loader2 className="ml-1 size-4 animate-spin text-muted-foreground" />}
           <div className="ml-auto flex shrink-0 gap-2">
+            {applicant.externalUserId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  window.open(
+                    `https://iv52bugou5xppexnhffgj53hwq0rorrh.lambda-url.ap-south-1.on.aws/users/view/${applicant.externalUserId}`,
+                    "_blank"
+                  )
+                }
+                title="View raw Finder profile"
+              >
+                <ExternalLink className="size-3.5 mr-1" /> Finder profile
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => toast.success(`Email drafted to ${applicant.email}`)}
@@ -158,6 +173,34 @@ export function CandidateProfileScreen({
 
         {/* Sidebar */}
         <aside className="space-y-4">
+          {/* Finder Profile Badge */}
+          {applicant.externalUserId && (
+            <div className="panel p-5">
+              <p className="text-eyebrow">Finder account</p>
+              <div className="mt-3 flex items-start gap-3">
+                <BadgeCheck className="size-5 shrink-0 text-primary mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Verified Finder user</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground break-all">
+                    UID: {applicant.externalUserId.slice(0, 16)}…
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.open(
+                        `https://iv52bugou5xppexnhffgj53hwq0rorrh.lambda-url.ap-south-1.on.aws/users/view/${applicant.externalUserId}`,
+                        "_blank"
+                      )
+                    }
+                    className="mt-2 flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <ExternalLink className="size-3" /> Open Finder profile
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Aura Points */}
           <div className="panel p-5">
             <p className="text-eyebrow">Aura points</p>

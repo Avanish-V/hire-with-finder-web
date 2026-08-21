@@ -1,6 +1,7 @@
 import { supabase } from "./supabaseClient";
+import { auth } from "./firebaseClient";
 
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://127.0.0.1:8787" : "https://recrutment-backend-avanish.onrender.com");
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 export interface User {
   id?: string;
@@ -10,6 +11,31 @@ export interface User {
   company?: string;
   [key: string]: unknown;
 }
+
+/**
+ * Get a fresh auth token, refreshing if necessary
+ */
+export const getFreshAuthToken = async (): Promise<string | null> => {
+  // First, try to get a fresh token from Firebase if user is signed in
+  const currentUser = auth.currentUser;
+  if (currentUser) {
+    try {
+      const freshToken = await currentUser.getIdToken(false); // Try without forcing refresh first
+      // Update stored token
+      if (typeof window !== "undefined") {
+        localStorage.setItem("token", freshToken);
+      }
+      return freshToken;
+    } catch (error) {
+      console.warn("Failed to get fresh Firebase token:", error);
+      // Fall back to stored token
+      return getAuthToken();
+    }
+  }
+  
+  // Fall back to stored token if no Firebase user
+  return getAuthToken();
+};
 
 /**
  * Get the auth token from localStorage
@@ -79,7 +105,7 @@ export const apiRequest = async (
   endpoint: string,
   options: RequestInit = {},
 ): Promise<Response> => {
-  const token = getAuthToken();
+  const token = await getFreshAuthToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -87,7 +113,6 @@ export const apiRequest = async (
   };
 
   if (token) {
-    headers["x-auth-token"] = token;
     headers["Authorization"] = `Bearer ${token}`;
   }
 
@@ -98,19 +123,6 @@ export const apiRequest = async (
       ...options,
       headers,
     });
-
-    // If 401 Unauthorized, clear auth storage and redirect to /auth
-    if (response.status === 401 && typeof window !== "undefined") {
-      const isAuthRoute =
-        endpoint.includes("/auth/login") ||
-        endpoint.includes("/auth/register") ||
-        endpoint.includes("/auth/supabase-session");
-
-      if (!isAuthRoute && !window.location.pathname.startsWith("/auth")) {
-        clearAuthStorage();
-        window.location.href = "/auth";
-      }
-    }
 
     return response;
   } catch (networkError) {

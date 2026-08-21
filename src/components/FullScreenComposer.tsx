@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { X } from "lucide-react";
+import { X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function FullScreenComposer({
@@ -8,6 +8,8 @@ export function FullScreenComposer({
   submitLabel,
   onClose,
   onSubmit,
+  onDelete,
+  deleteLabel = "Delete",
   children,
 }: {
   title: string;
@@ -15,6 +17,8 @@ export function FullScreenComposer({
   submitLabel: string;
   onClose: () => void;
   onSubmit: () => void;
+  onDelete?: () => void;
+  deleteLabel?: string;
   children: ReactNode;
 }) {
   return (
@@ -36,7 +40,19 @@ export function FullScreenComposer({
                 {description}
               </p>
             </div>
-            <div className="ml-auto flex shrink-0 gap-2">
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              {onDelete && (
+                <Button
+                  variant="destructive"
+                  type="button"
+                  size="sm"
+                  onClick={onDelete}
+                  className="gap-1.5"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span>{deleteLabel}</span>
+                </Button>
+              )}
               <Button variant="ghost" type="button" onClick={onClose}>
                 Cancel
               </Button>

@@ -16,6 +16,7 @@ import {
   Pencil,
   Search,
   Check,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
@@ -43,6 +44,7 @@ import {
   type Applicant,
 } from "@/lib/finder-data";
 import { apiRequest } from "@/lib/apiClient";
+import { uploadToS3 } from "@/services/mediaService";
 import {
   getSessions,
   createSession,
@@ -398,10 +400,12 @@ function NewSessionScreen({
   session,
   onClose,
   onSubmit,
+  onDelete,
 }: {
   session?: LiveSession;
   onClose: () => void;
   onSubmit: (data: Partial<LiveSession>) => void;
+  onDelete?: () => void;
 }) {
   const editing = Boolean(session);
   const [paid, setPaid] = useState(session ? session.price !== "Free" : true);
@@ -413,10 +417,47 @@ function NewSessionScreen({
   );
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Convert 24-hour time (HH:mm) to 12-hour format with AM/PM
+  const formatTimeTo12Hour = (time24: string): string => {
+    if (!time24) return "7:00 PM IST";
+    
+    const [hours24, minutes] = time24.split(':').map(Number);
+    const period = hours24 >= 12 ? 'PM' : 'AM';
+    const hours12 = hours24 % 12 || 12; // Convert 0 to 12 for midnight
+    
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period} IST`;
+  };
+
+  // Convert 12-hour time with AM/PM (e.g., "2:06 PM IST") to 24-hour format (HH:mm)
+  const formatTimeTo24Hour = (time12: string): string => {
+    if (!time12) return "";
+    
+    // Remove IST and trim
+    const cleanTime = time12.replace(/IST/gi, '').trim();
+    
+    // Parse time like "2:06 PM" or "2:06 AM"
+    const match = cleanTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return "";
+    
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const period = match[3].toUpperCase();
+    
+    // Convert to 24-hour format
+    if (period === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes}`;
+  };
+
   const handleSubmit = () => {
     const title = (document.getElementById("s-title") as HTMLInputElement)?.value;
     const date = (document.getElementById("s-date") as HTMLInputElement)?.value;
-    const time = (document.getElementById("s-time") as HTMLInputElement)?.value;
+    const time24 = (document.getElementById("s-time") as HTMLInputElement)?.value;
+    const time = formatTimeTo12Hour(time24); // Convert to 12-hour format with AM/PM
     const duration = (document.getElementById("s-duration") as HTMLInputElement)?.value;
     const seats = parseInt(
       (document.getElementById("s-seats") as HTMLInputElement)?.value || "100",
@@ -459,22 +500,65 @@ function NewSessionScreen({
       submitLabel={uploadingImage ? "Uploading..." : (editing ? "Save changes" : "Schedule session")}
       onClose={onClose}
       onSubmit={uploadingImage ? () => {} : handleSubmit}
+      onDelete={onDelete}
+      deleteLabel="Delete session"
     >
       <FormSection title="Cover & title" hint="How the session appears on the Finder board.">
         <div className="grid gap-2">
-          <Label>Thumbnail</Label>
+          <div className="flex items-center justify-between">
+            <Label>Thumbnail (16:9)</Label>
+            {thumb && !uploadingImage && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setThumb(null);
+                  if (fileRef.current) fileRef.current.value = "";
+                }}
+                className="flex items-center gap-1 text-xs text-destructive hover:underline"
+              >
+                <Trash2 className="size-3" /> Remove cover
+              </button>
+            )}
+          </div>
           <button
             type="button"
+            disabled={uploadingImage}
             onClick={() => fileRef.current?.click()}
-            className="relative grid h-48 w-full place-items-center overflow-hidden rounded-lg border border-dashed border-border bg-secondary/40 text-muted-foreground transition-colors hover:border-primary/50"
+            className="group relative grid h-48 w-full place-items-center overflow-hidden rounded-lg border border-dashed border-border bg-secondary/40 text-muted-foreground transition-all hover:border-primary/50"
           >
             {thumb ? (
-              <img src={thumb} alt="Session thumbnail preview" className={`size-full object-cover ${uploadingImage ? 'opacity-50' : ''}`} />
+              <>
+                <img
+                  src={thumb}
+                  alt="Session thumbnail preview"
+                  className={`size-full object-cover transition-opacity ${uploadingImage ? "opacity-40" : "group-hover:opacity-90"}`}
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                  <span className="flex items-center gap-1.5 rounded-md bg-background/90 px-3 py-1.5 text-xs font-medium text-foreground shadow-sm">
+                    <ImagePlus className="size-3.5" /> Change cover image
+                  </span>
+                </div>
+              </>
             ) : (
-              <span className="flex flex-col items-center gap-1 text-xs">
-                <ImagePlus className="size-5" />
-                {uploadingImage ? "Uploading..." : "Upload cover image (16:9)"}
+              <span className="flex flex-col items-center gap-1.5 text-xs">
+                {uploadingImage ? (
+                  <Loader2 className="size-6 animate-spin text-primary" />
+                ) : (
+                  <ImagePlus className="size-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                )}
+                <span className="font-medium text-foreground">
+                  {uploadingImage ? "Uploading to S3..." : "Upload cover image"}
+                </span>
+                <span className="text-[11px] text-muted-foreground">PNG, JPG or WebP (max 10MB)</span>
               </span>
+            )}
+
+            {uploadingImage && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 backdrop-blur-xs">
+                <Loader2 className="size-6 animate-spin text-primary" />
+                <span className="text-xs font-medium text-foreground">Uploading thumbnail to S3...</span>
+              </div>
             )}
           </button>
           <input
@@ -482,42 +566,30 @@ function NewSessionScreen({
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={(e) => {
+            onChange={async (e) => {
               const f = e.target.files?.[0];
               if (!f) return;
-              
+
               setUploadingImage(true);
-              const objectUrl = URL.createObjectURL(f);
-              setThumb(objectUrl); // show local preview immediately
-              
-              const reader = new FileReader();
-              reader.readAsDataURL(f);
-              reader.onload = async () => {
-                const base64 = reader.result as string;
-                try {
-                  const res = await apiRequest("/api/profile-upload/upload-logo", {
-                    method: "POST",
-                    body: JSON.stringify({ logoData: base64 })
-                  });
-                  
-                  if (res.ok) {
-                    const data = await res.json();
-                    if (data.url) {
-                      setThumb(data.url);
-                    }
-                  } else {
-                    const errData = await res.json().catch(() => ({}));
-                    toast.error(errData.msg || "Failed to upload image");
-                    setThumb(session?.thumbnail ?? null); // revert
-                  }
-                } catch (error) {
-                  console.error("Upload error", error);
-                  toast.error("Error uploading image");
-                  setThumb(session?.thumbnail ?? null); // revert
-                } finally {
-                  setUploadingImage(false);
-                }
-              };
+              const previewUrl = URL.createObjectURL(f);
+              setThumb(previewUrl);
+
+              try {
+                const s3Url = await uploadToS3(f, "live-skills/thumbnails");
+                setThumb(s3Url);
+                toast.success("Thumbnail uploaded to S3", {
+                  description: "Your live session cover image is ready.",
+                });
+              } catch (error) {
+                console.error("S3 upload error:", error);
+                toast.error("Failed to upload thumbnail to S3", {
+                  description: "Please check your network or try again.",
+                });
+                setThumb(session?.thumbnail ?? null);
+              } finally {
+                setUploadingImage(false);
+                URL.revokeObjectURL(previewUrl);
+              }
             }}
           />
         </div>
@@ -540,7 +612,7 @@ function NewSessionScreen({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="s-time">Start time</Label>
-            <Input id="s-time" type="time" defaultValue={session?.time} required />
+            <Input id="s-time" type="time" defaultValue={session?.time ? formatTimeTo24Hour(session.time) : ""} required />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="s-duration">Duration</Label>
@@ -657,6 +729,29 @@ function NewSessionScreen({
           />
         </div>
       </FormSection>
+
+      {editing && onDelete && (
+        <FormSection title="Danger Zone" hint="Permanently remove this session/course from Finder.">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+            <div>
+              <p className="text-sm font-semibold text-destructive">Delete this session</p>
+              <p className="text-xs text-muted-foreground">
+                Once deleted, enrolled students will no longer be able to access the join link or curriculum.
+              </p>
+            </div>
+            <Button
+              variant="destructive"
+              type="button"
+              size="sm"
+              onClick={onDelete}
+              className="gap-1.5"
+            >
+              <Trash2 className="size-3.5" />
+              <span>Delete session</span>
+            </Button>
+          </div>
+        </FormSection>
+      )}
     </FullScreenComposer>
   );
 }
@@ -810,6 +905,7 @@ function SessionsPage() {
           session={editing}
           onClose={() => setEditId(null)}
           onSubmit={handleUpdate}
+          onDelete={() => handleDelete(editing.id)}
         />
       )}
       {active && (

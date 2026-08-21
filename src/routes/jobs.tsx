@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { MapPin, Users, Plus, MoreHorizontal, IndianRupee, X } from "lucide-react";
+import { MapPin, Users, Plus, MoreHorizontal, IndianRupee, X, Trash2, Edit, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
 import { FullScreenComposer, FormSection } from "@/components/FullScreenComposer";
@@ -19,8 +19,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { type Job, JOB_TYPES, JOB_STATUSES } from "@/lib/finder-data";
-import { getJobs, createJob, updateJob } from "@/services/jobsService";
+import { getJobs, createJob, updateJob, deleteJob } from "@/services/jobsService";
 import { getJobApplicants } from "@/services/applicantsService";
+import { useAuth } from "@/lib/authContext";
+import { getAuthToken } from "@/lib/apiClient";
 
 export const Route = createFileRoute("/jobs")({
   head: () => ({
@@ -51,10 +53,12 @@ function JobCard({
   job,
   onViewApplicants,
   onEdit,
+  onDelete,
 }: {
   job: Job;
   onViewApplicants: () => void;
   onEdit: () => void;
+  onDelete: () => void;
 }) {
   return (
     <article className="panel p-5 transition-colors hover:border-primary/40">
@@ -69,9 +73,28 @@ function JobCard({
           <h3 className="mt-2 text-lg font-semibold">{job.title}</h3>
           <p className="text-sm text-muted-foreground">{job.company}</p>
         </div>
-        <Button variant="ghost" size="icon" aria-label="Post options" onClick={onEdit}>
-          <MoreHorizontal className="size-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Edit role"
+            title="Edit role"
+            onClick={onEdit}
+            className="size-8 text-muted-foreground hover:text-foreground"
+          >
+            <Edit className="size-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Delete role"
+            title="Delete role"
+            onClick={onDelete}
+            className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
@@ -100,6 +123,14 @@ function JobCard({
         </Button>
         <Button variant="ghost" size="sm" onClick={onEdit}>
           Edit
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+        >
+          Delete
         </Button>
       </div>
     </article>
@@ -179,10 +210,12 @@ function PostJobScreen({
   job,
   onClose,
   onSubmit,
+  onDelete,
 }: {
   job?: Job;
   onClose: () => void;
   onSubmit: (data: Partial<Job>) => void;
+  onDelete?: () => void;
 }) {
   const editing = Boolean(job);
   const [selectedType, setSelectedType] = useState<Job["type"]>(job?.type ?? "Internship");
@@ -227,6 +260,8 @@ function PostJobScreen({
       submitLabel={editing ? "Save changes" : "Publish role"}
       onClose={onClose}
       onSubmit={handleSubmit}
+      onDelete={onDelete}
+      deleteLabel="Delete role"
     >
       <FormSection title="Role basics" hint="What you're hiring for and where.">
         <div className="grid gap-2">
@@ -287,26 +322,69 @@ function PostJobScreen({
         </div>
         <div className="grid gap-2">
           <Label htmlFor="job-desc">Description</Label>
-          <Textarea id="job-desc" rows={8} placeholder="What the role involves…" />
+          <Textarea 
+            id="job-desc" 
+            rows={8} 
+            placeholder="What the role involves…" 
+            defaultValue={job?.description || ""}
+          />
         </div>
       </FormSection>
+
+      {editing && onDelete && (
+        <FormSection title="Danger Zone" hint="Permanently remove this opening from Finder.">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+            <div>
+              <p className="text-sm font-semibold text-destructive">Delete this role</p>
+              <p className="text-xs text-muted-foreground">
+                Once deleted, candidates will no longer be able to view or apply to this role.
+              </p>
+            </div>
+            <Button
+              variant="destructive"
+              type="button"
+              size="sm"
+              onClick={onDelete}
+              className="gap-1.5"
+            >
+              <Trash2 className="size-3.5" />
+              <span>Delete opening</span>
+            </Button>
+          </div>
+        </FormSection>
+      )}
     </FullScreenComposer>
   );
 }
 
 function JobsPage() {
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
   const [jobsList, setJobsList] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
   const [composing, setComposing] = useState(false);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [applicantsJobId, setApplicantsJobId] = useState<string | null>(null);
 
   useEffect(() => {
+    const token = getAuthToken();
+    console.log("Auth status - isAuthenticated:", isAuthenticated, "user:", user, "token:", token ? "present" : "missing");
+  }, [isAuthenticated, user]);
+
+  useEffect(() => {
     let isMounted = true;
-    getJobs().then((data) => {
-      if (isMounted) {
-        setJobsList(data);
-      }
-    });
+    setLoading(true);
+    getJobs()
+      .then((data) => {
+        if (isMounted) {
+          setJobsList(data);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
+      });
     return () => {
       isMounted = false;
     };
@@ -316,15 +394,59 @@ function JobsPage() {
   const activeJob = jobsList.find((j) => j.id === applicantsJobId) ?? null;
 
   const handleCreate = async (data: Partial<Job>) => {
-    const created = await createJob(data);
-    setJobsList((prev) => [created, ...prev]);
+    if (!isAuthenticated) {
+      toast.error("You must be signed in to create jobs");
+      navigate({ to: "/auth" });
+      return;
+    }
+    
+    try {
+      const created = await createJob(data);
+      setJobsList((prev) => [created, ...prev]);
+      toast.success("Job posted successfully!");
+    } catch (error: any) {
+      console.error("Failed to create job:", error);
+      const errorMessage = error?.message || "Failed to create job. Please check console for details.";
+      
+      if (errorMessage.includes("401") || errorMessage.includes("403")) {
+        toast.error("Authentication required. Please sign in again.");
+        navigate({ to: "/auth" });
+      } else {
+        toast.error(errorMessage);
+      }
+    }
   };
 
   const handleUpdate = async (data: Partial<Job>) => {
     if (!editingJobId) return;
-    const updated = await updateJob(editingJobId, data);
-    if (updated) {
-      setJobsList((prev) => prev.map((j) => (j.id === editingJobId ? updated : j)));
+    try {
+      const updated = await updateJob(editingJobId, data);
+      if (updated) {
+        setJobsList((prev) => prev.map((j) => (j.id === editingJobId ? updated : j)));
+        toast.success("Job updated successfully!");
+      }
+    } catch (error: any) {
+      console.error("Failed to update job:", error);
+      toast.error(error?.message || "Failed to update job. Please check console for details.");
+    }
+  };
+
+  const handleDelete = async (jobId: string, jobTitle: string) => {
+    const ok = window.confirm(`Are you sure you want to delete "${jobTitle}"?`);
+    if (!ok) return;
+
+    try {
+      const success = await deleteJob(jobId);
+      if (success) {
+        setJobsList((prev) => prev.filter((j) => j.id !== jobId));
+        if (editingJobId === jobId) setEditingJobId(null);
+        if (applicantsJobId === jobId) setApplicantsJobId(null);
+        toast.success(`"${jobTitle}" has been deleted.`);
+      } else {
+        toast.error("Failed to delete opening.");
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to delete opening.");
     }
   };
 
@@ -349,29 +471,70 @@ function JobsPage() {
         }
       />
 
-      <Tabs defaultValue="all">
-        <TabsList>
-          <TabsTrigger value="all">All ({groups.all.length})</TabsTrigger>
-          <TabsTrigger value="full_time">Full-time ({groups.full_time.length})</TabsTrigger>
-          <TabsTrigger value="internship">Internships ({groups.internship.length})</TabsTrigger>
-          <TabsTrigger value="open">Open ({groups.open.length})</TabsTrigger>
-          <TabsTrigger value="draft">Drafts ({groups.draft.length})</TabsTrigger>
-        </TabsList>
-        {(Object.keys(groups) as (keyof typeof groups)[]).map((key) => (
-          <TabsContent key={key} value={key} className="mt-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              {groups[key].map((job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  onViewApplicants={() => setApplicantsJobId(job.id)}
-                  onEdit={() => setEditingJobId(job.id)}
-                />
-              ))}
+      {!isAuthenticated && (
+        <div className="mb-6 rounded-lg border border-warning/40 bg-warning/10 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="size-5 text-warning shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-medium text-warning">Authentication Required</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                You need to sign in to create, edit, or delete jobs. You can view public job listings without signing in.
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-3"
+                onClick={() => navigate({ to: "/auth" })}
+              >
+                Sign In
+              </Button>
             </div>
-          </TabsContent>
-        ))}
-      </Tabs>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+            <p className="mt-4 text-sm text-muted-foreground">Loading jobs...</p>
+          </div>
+        </div>
+      ) : (
+        <Tabs defaultValue="all">
+          <TabsList>
+            <TabsTrigger value="all">All ({groups.all.length})</TabsTrigger>
+            <TabsTrigger value="full_time">Full-time ({groups.full_time.length})</TabsTrigger>
+            <TabsTrigger value="internship">Internships ({groups.internship.length})</TabsTrigger>
+            <TabsTrigger value="open">Open ({groups.open.length})</TabsTrigger>
+            <TabsTrigger value="draft">Drafts ({groups.draft.length})</TabsTrigger>
+          </TabsList>
+          {(Object.keys(groups) as (keyof typeof groups)[]).map((key) => (
+            <TabsContent key={key} value={key} className="mt-6">
+              {groups[key].length === 0 ? (
+                <div className="panel p-8 text-center">
+                  <p className="text-muted-foreground">No jobs found in this category.</p>
+                  <Button onClick={() => setComposing(true)} variant="outline" className="mt-4">
+                    <Plus className="size-4" /> Post your first role
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {groups[key].map((job) => (
+                    <JobCard
+                      key={job.id}
+                      job={job}
+                      onViewApplicants={() => setApplicantsJobId(job.id)}
+                      onEdit={() => setEditingJobId(job.id)}
+                      onDelete={() => handleDelete(job.id, job.title)}
+                    />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
+      )}
 
       {composing && <PostJobScreen onClose={() => setComposing(false)} onSubmit={handleCreate} />}
       {editingJob && (
@@ -379,6 +542,7 @@ function JobsPage() {
           job={editingJob}
           onClose={() => setEditingJobId(null)}
           onSubmit={handleUpdate}
+          onDelete={() => handleDelete(editingJob.id, editingJob.title)}
         />
       )}
       {activeJob && (

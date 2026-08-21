@@ -25,6 +25,7 @@ export type Job = {
   applicants: number;
   skills: string[];
   status: JobStatus;
+  description?: string;
 };
 
 export const jobs: Job[] = []; // TODO: Handle cases where jobs are not available from API

@@ -1,11 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { ArrowRight, Briefcase, Radio, Users, ShieldCheck, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Briefcase, Radio, Users, ShieldCheck, Loader2, Sparkles, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/authContext";
 
 export const Route = createFileRoute("/auth")({
@@ -15,7 +12,7 @@ export const Route = createFileRoute("/auth")({
       {
         name: "description",
         content:
-          "Sign in to Finder with Google to post internships and jobs, run live skill sessions and manage every applicant.",
+          "Sign in to Finder with your Google account to post internships and jobs, run live skill sessions and manage applicants.",
       },
       { property: "og:title", content: "Sign in to Finder" },
       {
@@ -23,7 +20,6 @@ export const Route = createFileRoute("/auth")({
         content: "One account for your roles, live sessions and applicant pipeline.",
       },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: AuthPage,
@@ -56,83 +52,45 @@ const highlights = [
   {
     icon: Briefcase,
     title: "Post roles in minutes",
-    copy: "Internships and jobs with a full-screen composer.",
+    copy: "Internships and jobs with instant publishing.",
   },
   {
     icon: Radio,
-    title: "Go live on Meet",
-    copy: "Sell or share skill sessions with modules and pricing.",
+    title: "Go live on Google Meet",
+    copy: "Host live skill courses & workshops for students.",
   },
   {
     icon: Users,
-    title: "One pipeline",
-    copy: "Applicants and enrollees, profiles and stages in one view.",
+    title: "Unified Pipeline",
+    copy: "Applicants and course enrollees in one dashboard.",
   },
 ];
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [loading, setLoading] = useState<"google" | "email" | null>(null);
+  const { user, isAuthenticated, signInWithGoogle } = useAuth();
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      void navigate({ to: "/" });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleGoogleAuth = async () => {
-    setLoading("google");
+    setLoading(true);
     try {
       const res = await signInWithGoogle();
       if (res.success) {
-        toast.success("Signed in with Google", {
-          description: "Welcome back to your Finder workspace.",
-        });
+        toast.success("Welcome back! Redirecting...");
         void navigate({ to: "/" });
       } else {
-        toast.error(res.error || "Google sign-in could not be completed");
+        toast.error(res.error || "Google sign-in could not be completed.");
+        setLoading(false);
       }
-    } catch {
-      toast.success("Signed in with Google", {
-        description: "Welcome back to your Finder workspace.",
-      });
-      void navigate({ to: "/" });
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  const handleEmailAuth = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading("email");
-
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-    const name = (formData.get("name") as string) || "";
-
-    try {
-      if (mode === "signup") {
-        const res = await signUpWithEmail(name, email, password);
-        if (res.success) {
-          toast.success("Account created", {
-            description: "Welcome to your Finder workspace.",
-          });
-          void navigate({ to: "/" });
-        } else {
-          toast.error(res.error || "Could not create account");
-        }
-      } else {
-        const res = await signInWithEmail(email, password);
-        if (res.success) {
-          toast.success("Signed in with email", {
-            description: "Welcome back to your Finder workspace.",
-          });
-          void navigate({ to: "/" });
-        } else {
-          toast.error(res.error || "Could not sign in with email");
-        }
-      }
-    } catch {
-      toast.error("Authentication failed. Please check your details.");
-    } finally {
-      setLoading(null);
+    } catch (err: any) {
+      toast.error(err?.message || "An error occurred during sign-in.");
+      setLoading(false);
     }
   };
 
@@ -155,13 +113,15 @@ function AuthPage() {
         </Link>
 
         <div className="relative mt-auto max-w-md">
-          <p className="text-eyebrow">Hiring & live skill sessions</p>
-          <h2 className="mt-3 font-display text-4xl font-semibold leading-tight">
-            Recruit talent and teach it live — from one workspace.
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            <Sparkles className="size-3.5" />
+            <span>Firebase Auth Protection</span>
+          </div>
+          <h2 className="mt-4 font-display text-4xl font-semibold leading-tight">
+            Recruit talent and run live skill courses.
           </h2>
           <p className="mt-4 text-sm text-muted-foreground">
-            Finder brings internships, jobs and live Meet sessions together with a single applicant
-            pipeline.
+            Finder brings jobs, internships, and live skill courses together in a single workspace.
           </p>
 
           <div className="mt-10 space-y-4">
@@ -190,13 +150,13 @@ function AuthPage() {
               </span>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground">Trusted by 1,200+ recruiters and mentors</p>
+          <p className="text-xs text-muted-foreground">Trusted by recruiters & instructors</p>
         </div>
       </aside>
 
       {/* Auth panel */}
       <main className="flex min-h-screen items-center justify-center px-5 py-12 sm:px-10">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md text-center sm:text-left">
           <Link to="/" className="mb-10 flex items-center gap-2 lg:hidden">
             <span className="grid size-9 place-items-center rounded-xl bg-primary font-display font-bold text-primary-foreground">
               F
@@ -204,107 +164,44 @@ function AuthPage() {
             <span className="font-display text-lg font-semibold tracking-tight">Finder</span>
           </Link>
 
-          <p className="text-eyebrow">{mode === "signin" ? "Welcome back" : "Get started"}</p>
+          <p className="text-eyebrow">Recruiter & Instructor Portal</p>
           <h1 className="mt-2 text-3xl font-semibold md:text-4xl">
-            {mode === "signin" ? "Sign in to Finder" : "Create your Finder account"}
+            Sign in to HireWithFinder
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {mode === "signin"
-              ? "Continue with Google or use your work email."
-              : "Set up your recruiter workspace in under a minute."}
+            Use your Google account to access your hiring dashboard and skill sessions.
           </p>
 
-          <Button
-            size="lg"
-            variant="outline"
-            disabled={loading !== null}
-            onClick={handleGoogleAuth}
-            className="mt-8 h-12 w-full justify-center gap-3 bg-card text-sm font-medium hover:bg-accent"
-          >
-            {loading === "google" ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <GoogleMark className="size-5" />
-            )}
-            Continue with Google
-          </Button>
+          <div className="mt-8 rounded-2xl border border-border/80 bg-card p-6 shadow-sm">
+            <Button
+              size="lg"
+              disabled={loading}
+              onClick={handleGoogleAuth}
+              className="h-13 w-full justify-center gap-3 text-base font-medium shadow-sm transition-all hover:scale-[1.01]"
+            >
+              {loading ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                <GoogleMark className="size-5" />
+              )}
+              Continue with Google Account
+            </Button>
 
-          <div className="my-6 flex items-center gap-4">
-            <Separator className="flex-1" />
-            <span className="text-[11px] uppercase tracking-widest text-muted-foreground">or</span>
-            <Separator className="flex-1" />
+            <div className="mt-6 space-y-2 text-left text-xs text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                <span>Instant sign-in via Firebase OAuth (No passwords needed)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                <span>Seamless sync with your PostgreSQL recruiter profile</span>
+              </div>
+            </div>
           </div>
 
-          <form className="space-y-4" onSubmit={handleEmailAuth}>
-            {mode === "signup" && (
-              <div className="space-y-2">
-                <Label htmlFor="name">Full name</Label>
-                <Input id="name" name="name" placeholder="Aditya Kumar" required className="h-11" />
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email">Work email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="you@company.com"
-                required
-                className="h-11"
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                {mode === "signin" && (
-                  <button
-                    type="button"
-                    onClick={() => toast("Password reset link sent if the account exists.")}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    Forgot password?
-                  </button>
-                )}
-              </div>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="••••••••"
-                required
-                className="h-11"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              size="lg"
-              disabled={loading !== null}
-              className="h-12 w-full gap-2"
-            >
-              {loading === "email" ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <ArrowRight className="size-4" />
-              )}
-              {mode === "signin" ? "Sign in" : "Create account"}
-            </Button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            {mode === "signin" ? "New to Finder?" : "Already have an account?"}{" "}
-            <button
-              type="button"
-              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-              className="font-medium text-primary hover:underline"
-            >
-              {mode === "signin" ? "Create an account" : "Sign in"}
-            </button>
-          </p>
-
-          <div className="mt-8 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-            <ShieldCheck className="size-3.5 text-success" />
-            Protected by workspace-level security
+          <div className="mt-8 flex items-center justify-center gap-2 text-xs text-muted-foreground sm:justify-start">
+            <ShieldCheck className="size-4 text-primary" />
+            Protected by enterprise-grade Firebase authentication
           </div>
         </div>
       </main>

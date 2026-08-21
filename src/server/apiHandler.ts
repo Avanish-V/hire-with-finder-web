@@ -151,6 +151,12 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     }
   }
 
+  if (path.startsWith("/api/jobs/") && method === "DELETE") {
+    const id = path.replace("/api/jobs/", "");
+    serverJobs = serverJobs.filter((j) => j.id !== id);
+    return json({ msg: "Job removed" });
+  }
+
   // Courses / Sessions Endpoints
   if (path === "/api/courses" && method === "GET") {
     return json(serverSessions);

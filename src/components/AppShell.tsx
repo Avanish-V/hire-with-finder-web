@@ -1,10 +1,11 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Briefcase, Radio, Users, Search, Bell } from "lucide-react";
-import type { ReactNode } from "react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { LayoutDashboard, Briefcase, Radio, Users, Search, Bell, LogOut } from "lucide-react";
+import { useEffect, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/lib/authContext";
 
 const nav = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
@@ -15,9 +16,34 @@ const nav = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const { user, isAuthenticated, loading, signOut } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated && !pathname.startsWith("/auth")) {
+      void navigate({ to: "/auth" });
+    }
+  }, [isAuthenticated, loading, pathname, navigate]);
+
+  // After Google redirect sign-in succeeds, redirect away from /auth to dashboard
+  useEffect(() => {
+    if (!loading && isAuthenticated && pathname.startsWith("/auth")) {
+      void navigate({ to: "/" });
+    }
+  }, [isAuthenticated, loading, pathname, navigate]);
 
   // Auth is a standalone full-page experience without app chrome.
   if (pathname.startsWith("/auth")) return <>{children}</>;
+
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .filter(Boolean)
+        .map((p) => p[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase() || "RC"
+    : "RC";
 
   return (
     <div className="min-h-screen lg:flex">
@@ -49,6 +75,27 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
+
+        <div className="mt-auto border-t border-sidebar-border pt-4">
+          <div className="flex items-center justify-between px-2">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium">{user?.name || "Recruiter"}</p>
+              <p className="truncate text-[11px] text-muted-foreground">{user?.email || "recruiter@finder.app"}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={async () => {
+                await signOut();
+                void navigate({ to: "/auth" });
+              }}
+              title="Sign out"
+              className="size-8 text-muted-foreground hover:text-destructive"
+            >
+              <LogOut className="size-4" />
+            </Button>
+          </div>
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -72,7 +119,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Button>
             <Link to="/profile" aria-label="Profile">
               <Avatar className="size-9 border border-border transition-opacity hover:opacity-80">
-                <AvatarFallback className="bg-secondary text-xs font-semibold">AK</AvatarFallback>
+                <AvatarFallback className="bg-secondary text-xs font-semibold">{initials}</AvatarFallback>
               </Avatar>
             </Link>
           </div>

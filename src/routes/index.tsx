@@ -73,7 +73,7 @@ function Overview() {
     { label: "Hire rate", value: statsData.hireRate, delta: "+3.2% vs last mo", icon: TrendingUp },
   ];
 
-  const displayName = user?.name?.split(" ")[0] || "Aditya";
+  const displayName = user?.name ? user.name.split(" ")[0] : "Recruiter";
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -139,17 +139,17 @@ function Overview() {
             </Link>
           </div>
           <ul className="divide-y divide-border">
-            {recentApplicants.map((a) => (
+            {(recentApplicants || []).map((a) => (
               <li key={a.id} className="flex items-center gap-3 py-3">
                 <Avatar className="size-9 border border-border">
-                  <AvatarFallback className="bg-secondary text-xs">{a.initials}</AvatarFallback>
+                  <AvatarFallback className="bg-secondary text-xs">{a.initials || "AP"}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{a.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{a.target}</p>
                 </div>
-                <Badge variant="secondary" className={stageTone[a.stage]}>
-                  {a.stage}
+                <Badge variant="secondary" className={stageTone[a.stage] || "bg-muted text-muted-foreground"}>
+                  {a.stage || "New"}
                 </Badge>
               </li>
             ))}
@@ -164,7 +164,7 @@ function Overview() {
             </Link>
           </div>
           <div className="space-y-5">
-            {topPosts.map((j) => (
+            {(topPosts || []).map((j) => (
               <div key={j.id}>
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="truncate text-sm font-medium">{j.title}</p>

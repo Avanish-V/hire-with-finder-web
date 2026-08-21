@@ -125,15 +125,27 @@ export function mapBackendSession(raw: BackendCoursePayload): LiveSession {
     : defaultModules;
 
   // Determine status
-  const status: LiveSession["status"] =
-    raw.status || (raw.active === false ? "Completed" : "Scheduled");
+  const validStatus: LiveSession["status"] =
+    (raw.status as LiveSession["status"]) || (raw.active === false ? "Completed" : "Scheduled");
+
+  const dateStr = (typeof raw.date === "string" && raw.date.trim()) 
+    ? raw.date 
+    : (typeof raw.schedule_date === "string" && raw.schedule_date.trim())
+    ? raw.schedule_date 
+    : displayDate;
+  
+  const timeStr = (typeof raw.time === "string" && raw.time.trim()) 
+    ? raw.time 
+    : (typeof raw.schedule_time === "string" && raw.schedule_time.trim())
+    ? raw.schedule_time 
+    : "7:00 PM IST";
 
   return {
     id: raw.id || raw._id || `s-${Date.now()}`,
     title: raw.title?.trim() || "Live Skill Session",
     host,
-    date: raw.date || raw.schedule_date || displayDate,
-    time: raw.time || raw.schedule_time || "7:00 PM IST",
+    date: dateStr,
+    time: timeStr,
     duration: raw.duration?.trim() || "90 min",
     seats: raw.seats || raw.max_seats || 100,
     enrolled:
@@ -144,7 +156,7 @@ export function mapBackendSession(raw: BackendCoursePayload): LiveSession {
           : 0,
     price: displayPrice,
     level: raw.level || "Beginner",
-    status,
+    status: validStatus,
     meetLink,
     tags: tags.length > 0 ? tags : ["Live", "Workshop"],
     thumbnail: raw.thumbnail?.trim() || raw.cover_image?.trim() || undefined,
@@ -158,28 +170,46 @@ export function mapBackendSession(raw: BackendCoursePayload): LiveSession {
 
 /**
  * Fetch all live skill sessions from backend API /api/courses
+ * By default, fetches only the authenticated recruiter's courses (recruiterOnly=true)
  * Falls back gracefully to static mock sessions if backend is offline or returns empty.
  */
 export async function getSessions(): Promise<LiveSession[]> {
   try {
-    const res = await apiRequest("/api/courses");
+    console.log("Fetching courses from /api/courses");
+    const res = await apiRequest("/api/courses?recruiterOnly=true");
+    console.log("Courses API response:", res.status, res.ok);
+    
     if (res.ok) {
       const data = (await res.json()) as BackendCoursePayload[];
+      console.log("Courses API data:", data);
+      
       if (Array.isArray(data) && data.length > 0) {
+        console.log("Mapping courses, count:", data.length);
         const mappedList = data.map(mapBackendSession);
-        // Merge with in-memory sessions ensuring no duplicates by ID
+        console.log("Mapped sessions:", mappedList);
+        
         const backendIds = new Set(mappedList.map((m) => m.id));
         const customLocal = inMemorySessions.filter(
           (s) => !backendIds.has(s.id) && !staticSessions.some((st) => st.id === s.id),
         );
         inMemorySessions = [...mappedList, ...customLocal];
+        console.log("Returning sessions, total count:", inMemorySessions.length);
         return inMemorySessions;
+      } else if (Array.isArray(data) && data.length === 0) {
+        console.log("Backend returned empty array");
+        return [];
+      } else {
+        console.warn("Backend returned non-array data:", data);
       }
+    } else {
+      console.warn("Courses API returned non-OK status:", res.status);
     }
   } catch (error) {
-    console.debug("GET /api/courses unavailable, using hybrid static fallback:", error);
+    console.error("GET /api/courses error:", error);
+    console.debug("Using hybrid static fallback");
   }
 
+  console.log("Returning in-memory sessions, count:", inMemorySessions.length);
   return [...inMemorySessions];
 }
 
@@ -193,7 +223,6 @@ export async function getSessionDetails(
   let modules = defaultModules;
   let students: Applicant[] = peopleFor(sessionTitle, "Session");
 
-  // Fetch full content (modules + lessons)
   try {
     const contentRes = await apiRequest(`/api/courses/${id}/content`);
     if (contentRes.ok) {
@@ -210,7 +239,6 @@ export async function getSessionDetails(
     console.debug(`Content API for course ${id} unavailable, using static modules.`);
   }
 
-  // Fetch enrolled students
   try {
     const studentsRes = await apiRequest(`/api/courses/${id}/students`);
     if (studentsRes.ok) {
@@ -275,6 +303,10 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
     category: sessionData.tags?.join(", ") || "Live Workshop",
     level: sessionData.level || "Beginner",
     active: true,
+    seats: sessionData.seats || 100,
+    date: sessionData.date || "",
+    time: sessionData.time || "",
+    modules: sessionData.modules || [],
   };
 
   const newLocalSession: LiveSession = {
@@ -291,7 +323,7 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
     status: "Scheduled",
     meetLink: backendBody.liveUrl,
     tags: sessionData.tags || ["Live"],
-    thumbnail: sessionData.thumbnail,
+    thumbnail: sessionData.thumbnail || undefined,
     summary: backendBody.description,
     modules: sessionData.modules || defaultModules,
   };
@@ -305,7 +337,6 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
     if (res.ok) {
       const data = (await res.json()) as BackendCoursePayload;
       const mapped = mapBackendSession(data);
-      // Preserve client side fields that backend might not store
       const combined: LiveSession = {
         ...newLocalSession,
         ...mapped,
@@ -315,21 +346,22 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
         modules: sessionData.modules || mapped.modules,
       };
 
-      // Add modules to the course on backend if provided
       if (data.id && Array.isArray(sessionData.modules)) {
         for (let i = 0; i < sessionData.modules.length; i++) {
           const mod = sessionData.modules[i];
-          try {
-            await apiRequest(`/api/courses/${data.id}/modules`, {
-              method: "POST",
-              body: JSON.stringify({
-                title: mod.title,
-                description: mod.detail || "",
-                order: i,
-              }),
-            });
-          } catch {
-            // Non-critical module sync failure
+          if (mod) {
+            try {
+              await apiRequest(`/api/courses/${data.id}/modules`, {
+                method: "POST",
+                body: JSON.stringify({
+                  title: mod.title,
+                  description: mod.detail || "",
+                  order: i,
+                }),
+              });
+            } catch {
+              // Non-critical module sync failure
+            }
           }
         }
       }
@@ -371,6 +403,10 @@ export async function updateSession(
   if (updates.meetLink !== undefined) backendUpdates.liveUrl = updates.meetLink;
   if (updates.level) backendUpdates.level = updates.level;
   if (updates.tags) backendUpdates.category = updates.tags.join(", ");
+  if (updates.seats !== undefined) backendUpdates.seats = updates.seats;
+  if (updates.date !== undefined) backendUpdates.date = updates.date;
+  if (updates.time !== undefined) backendUpdates.time = updates.time;
+  if (updates.modules !== undefined) backendUpdates.modules = updates.modules;
 
   try {
     const res = await apiRequest(`/api/courses/${id}`, {
@@ -392,11 +428,12 @@ export async function updateSession(
 
   const existingIndex = inMemorySessions.findIndex((s) => s.id === id);
   if (existingIndex !== -1) {
+    const current = inMemorySessions[existingIndex]!;
     inMemorySessions[existingIndex] = {
-      ...inMemorySessions[existingIndex],
+      ...current,
       ...updates,
     };
-    return inMemorySessions[existingIndex];
+    return inMemorySessions[existingIndex]!;
   }
 
   return null;
@@ -425,8 +462,6 @@ export async function deleteSession(id: string): Promise<boolean> {
 
 /**
  * Enroll the authenticated user in a course/session
- * POST /api/courses/:id/enroll
- * Returns { success, message }
  */
 export async function enrollInSession(
   sessionId: string,

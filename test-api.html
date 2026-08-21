@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test - HireWithFinder</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 { color: #333; }
+        h2 { color: #666; margin-top: 0; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover { background: #0056b3; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 400px;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>HireWithFinder API Test Console</h1>
+    
+    <div class="container">
+        <h2>1. Test GET /api/jobs (Public - No Auth Required)</h2>
+        <button onclick="testGetJobs()">Fetch Jobs</button>
+        <pre id="getJobsResult">Click button to fetch jobs...</pre>
+    </div>
+
+    <div class="container">
+        <h2>2. Test POST /api/jobs (Requires Auth)</h2>
+        <label>Auth Token (from localStorage or Firebase):</label>
+        <input type="text" id="authToken" placeholder="Paste Firebase ID token here" />
+        <button onclick="loadTokenFromStorage()">Load from localStorage</button>
+        
+        <label>Job Title:</label>
+        <input type="text" id="jobTitle" value="Test Frontend Developer" />
+        
+        <label>Company:</label>
+        <input type="text" id="jobCompany" value="TestCorp" />
+        
+        <label>Location:</label>
+        <input type="text" id="jobLocation" value="Remote" />
+        
+        <label>Type:</label>
+        <select id="jobType">
+            <option value="Internship">Internship</option>
+            <option value="Full-time">Full-time</option>
+            <option value="Part-time">Part-time</option>
+            <option value="Contract">Contract</option>
+        </select>
+        
+        <label>Stipend:</label>
+        <input type="text" id="jobStipend" value="25000" />
+        
+        <label>Skills (comma separated):</label>
+        <input type="text" id="jobSkills" value="React, TypeScript, Node.js" />
+        
+        <label>Description:</label>
+        <textarea id="jobDescription" rows="3">Looking for a talented frontend developer...</textarea>
+        
+        <button onclick="testCreateJob()">Create Job</button>
+        <pre id="createJobResult">Fill form and click button to create job...</pre>
+    </div>
+
+    <div class="container">
+        <h2>3. Check Browser Storage</h2>
+        <button onclick="checkStorage()">Check Storage</button>
+        <pre id="storageResult">Click button to check storage...</pre>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8081';
+
+        async function testGetJobs() {
+            const result = document.getElementById('getJobsResult');
+            result.textContent = 'Loading...';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/jobs`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                result.innerHTML = `<span class="success">✓ Status: ${response.status}</span>\n\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                result.innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+            }
+        }
+
+        function loadTokenFromStorage() {
+            const token = localStorage.getItem('token');
+            const tokenInput = document.getElementById('authToken');
+            if (token) {
+                tokenInput.value = token;
+                alert('Token loaded from localStorage');
+            } else {
+                alert('No token found in localStorage. Please sign in first.');
+            }
+        }
+
+        async function testCreateJob() {
+            const result = document.getElementById('createJobResult');
+            result.textContent = 'Creating job...';
+            
+            const token = document.getElementById('authToken').value;
+            if (!token) {
+                result.innerHTML = '<span class="error">✗ Error: Auth token is required. Please sign in or paste a token.</span>';
+                return;
+            }
+
+            const skillsStr = document.getElementById('jobSkills').value;
+            const skills = skillsStr.split(',').map(s => s.trim()).filter(s => s);
+
+            const jobData = {
+                title: document.getElementById('jobTitle').value,
+                company: document.getElementById('jobCompany').value,
+                location: document.getElementById('jobLocation').value,
+                type: document.getElementById('jobType').value,
+                stipend: document.getElementById('jobStipend').value,
+                skills: skills,
+                description: document.getElementById('jobDescription').value,
+                status: 'Open'
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/api/jobs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'x-auth-token': token
+                    },
+                    body: JSON.stringify(jobData)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    result.innerHTML = `<span class="success">✓ Status: ${response.status} - Job Created!</span>\n\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    const errorText = await response.text();
+                    result.innerHTML = `<span class="error">✗ Status: ${response.status}</span>\n\n${errorText}`;
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">✗ Network Error: ${error.message}</span>`;
+            }
+        }
+
+        function checkStorage() {
+            const result = document.getElementById('storageResult');
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            let output = '=== localStorage ===\n\n';
+            output += `token: ${token ? 'Present (length: ' + token.length + ')' : 'Not found'}\n`;
+            output += `user: ${user ? user : 'Not found'}\n\n`;
+            
+            output += '=== All localStorage keys ===\n';
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                output += `${key}\n`;
+            }
+            
+            result.textContent = output;
+        }
+
+        // Auto-load on page load
+        window.addEventListener('load', () => {
+            checkStorage();
+            testGetJobs();
+        });
+    </script>
+</body>
+</html>
