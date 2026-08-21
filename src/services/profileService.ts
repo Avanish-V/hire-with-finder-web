@@ -1,5 +1,17 @@
 import { apiRequest, getUser } from "@/lib/apiClient";
 
+export interface CompanyProfile {
+  name: string;
+  logoUrl: string;
+  website: string;
+  industry: string;
+  size: string;
+  address: string;
+  city: string;
+  country: string;
+  about: string;
+}
+
 export interface UserProfile {
   name: string;
   email: string;
@@ -8,6 +20,8 @@ export interface UserProfile {
   company: string;
   location: string;
   bio: string;
+  avatarUrl: string;
+  companyProfile: CompanyProfile;
   skills: string[];
   notifications: {
     applicantAlerts: boolean;
@@ -19,7 +33,21 @@ export interface UserProfile {
   applicantsCount: number;
 }
 
+export const emptyCompanyProfile: CompanyProfile = {
+  name: "Finder Internal",
+  logoUrl: "",
+  website: "https://finder.app",
+  industry: "Technology",
+  size: "51-200",
+  address: "4th Floor, Prestige Tech Park, Kadubeesanahalli",
+  city: "Bengaluru",
+  country: "India",
+  about: "We help students and early-career engineers find internships, jobs and live upskilling sessions.",
+};
+
 let inMemoryProfile: UserProfile = {
+  avatarUrl: "",
+  companyProfile: { ...emptyCompanyProfile },
   name: "Aditya Kulkarni",
   email: "aditya@finder.app",
   phone: "+91 98200 11223",
@@ -53,6 +81,11 @@ export async function getProfile(): Promise<UserProfile> {
         ...data,
         name: data.name || currentUser?.name || inMemoryProfile.name,
         email: data.email || currentUser?.email || inMemoryProfile.email,
+        avatarUrl: data.avatarUrl || currentUser?.avatarUrl || inMemoryProfile.avatarUrl,
+        companyProfile: {
+          ...inMemoryProfile.companyProfile,
+          ...(data.companyProfile ?? data.company_profile ?? {}),
+        },
       };
       return inMemoryProfile;
     }
