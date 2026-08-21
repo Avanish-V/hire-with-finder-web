@@ -81,6 +81,11 @@ export async function getProfile(): Promise<UserProfile> {
         ...data,
         name: data.name || currentUser?.name || inMemoryProfile.name,
         email: data.email || currentUser?.email || inMemoryProfile.email,
+        avatarUrl: data.avatarUrl || currentUser?.avatarUrl || inMemoryProfile.avatarUrl,
+        companyProfile: {
+          ...inMemoryProfile.companyProfile,
+          ...(data.companyProfile ?? data.company_profile ?? {}),
+        },
       };
       return inMemoryProfile;
     }
