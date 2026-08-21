@@ -42,6 +42,8 @@ export const Route = createFileRoute("/profile")({
 function ProfilePage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile>({
+    avatarUrl: "",
+    companyProfile: { ...emptyCompanyProfile },
     name: "Aditya Kulkarni",
     email: "aditya@finder.app",
     phone: "+91 98200 11223",
