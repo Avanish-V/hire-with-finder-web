@@ -1,5 +1,17 @@
 import { apiRequest, getUser } from "@/lib/apiClient";
 
+export interface CompanyProfile {
+  name: string;
+  logoUrl: string;
+  website: string;
+  industry: string;
+  size: string;
+  address: string;
+  city: string;
+  country: string;
+  about: string;
+}
+
 export interface UserProfile {
   name: string;
   email: string;
@@ -8,6 +20,8 @@ export interface UserProfile {
   company: string;
   location: string;
   bio: string;
+  avatarUrl: string;
+  companyProfile: CompanyProfile;
   skills: string[];
   notifications: {
     applicantAlerts: boolean;
