@@ -124,18 +124,31 @@ function ProfilePage() {
       <section className="panel flex flex-wrap items-center gap-5 p-6">
         <div className="relative">
           <Avatar className="size-20 border border-border">
+            {profile.avatarUrl ? <AvatarImage src={profile.avatarUrl} alt={profile.name} /> : null}
             <AvatarFallback className="bg-secondary font-display text-xl">
               {initials}
             </AvatarFallback>
           </Avatar>
-          <button
-            type="button"
-            onClick={() => toast("Photo upload synced with profile")}
+          <label
             aria-label="Change photo"
-            className="absolute -bottom-1 -right-1 grid size-8 place-items-center rounded-full bg-primary text-primary-foreground"
+            className="absolute -bottom-1 -right-1 grid size-8 cursor-pointer place-items-center rounded-full bg-primary text-primary-foreground"
           >
-            <Camera className="size-4" />
-          </button>
+            {uploading === "avatar" ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Camera className="size-4" />
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImageUpload(file, "avatar");
+                e.target.value = "";
+              }}
+            />
+          </label>
         </div>
         <div className="min-w-[12rem] flex-1">
           <h2 className="text-xl font-semibold">{profile.name}</h2>
