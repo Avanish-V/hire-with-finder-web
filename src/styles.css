@@ -185,6 +185,14 @@
   box-shadow: var(--shadow-panel);
 }
 
+@utility bg-pattern {
+  background-image:
+    linear-gradient(to right, var(--bg-pattern-accent) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--bg-pattern-accent) 1px, transparent 1px),
+    radial-gradient(circle at center, var(--bg-pattern) 1.5px, transparent 1.5px);
+  background-size: 48px 48px, 48px 48px, 24px 24px;
+}
+
 @utility text-eyebrow {
   font-family: var(--font-display);
   font-size: 0.7rem;
