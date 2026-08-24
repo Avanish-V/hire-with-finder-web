@@ -78,7 +78,14 @@ function AuthPage() {
 
   return (
     <div className="relative flex min-h-screen w-full items-center justify-center bg-background px-6 py-12">
-      {/* Subtle canvas tint glow */}
+      {/* Pattern + glow backdrop */}
+      <div
+        className="pointer-events-none fixed inset-0 bg-pattern opacity-60"
+        style={{
+          maskImage: "radial-gradient(ellipse at center, transparent 20%, black 55%, black 75%, transparent 100%)",
+          WebkitMaskImage: "radial-gradient(ellipse at center, transparent 20%, black 55%, black 75%, transparent 100%)",
+        }}
+      />
       <div
         className="pointer-events-none fixed left-1/2 top-0 -translate-x-1/2 opacity-40 blur-3xl"
         style={{
