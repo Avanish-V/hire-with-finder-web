@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Briefcase, Radio, Users, ShieldCheck, Loader2, Sparkles, CheckCircle2 } from "lucide-react";
+import { Loader2, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/authContext";
@@ -8,18 +8,18 @@ import { useAuth } from "@/lib/authContext";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in to Finder — Hiring & Live Skill Sessions" },
+      { title: "Sign in to Finder" },
       {
         name: "description",
-        content:
-          "Sign in to Finder with your Google account to post internships and jobs, run live skill sessions and manage applicants.",
+        content: "Sign in to Finder with your Google account to manage hiring and live skill sessions.",
       },
       { property: "og:title", content: "Sign in to Finder" },
       {
         property: "og:description",
-        content: "One account for your roles, live sessions and applicant pipeline.",
+        content: "Recruitment and live skill sessions, simplified.",
       },
       { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AuthPage,
@@ -48,27 +48,9 @@ function GoogleMark({ className }: { className?: string }) {
   );
 }
 
-const highlights = [
-  {
-    icon: Briefcase,
-    title: "Post roles in minutes",
-    copy: "Internships and jobs with instant publishing.",
-  },
-  {
-    icon: Radio,
-    title: "Go live on Google Meet",
-    copy: "Host live skill courses & workshops for students.",
-  },
-  {
-    icon: Users,
-    title: "Unified Pipeline",
-    copy: "Applicants and course enrollees in one dashboard.",
-  },
-];
-
 function AuthPage() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, signInWithGoogle } = useAuth();
+  const { isAuthenticated, signInWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -95,116 +77,69 @@ function AuthPage() {
   };
 
   return (
-    <div className="relative min-h-screen lg:grid lg:grid-cols-[1.05fr_1fr]">
-      {/* Brand / value panel */}
-      <aside className="relative hidden overflow-hidden border-r border-border bg-sidebar px-12 py-14 lg:flex lg:flex-col">
-        <div
-          className="pointer-events-none absolute -left-24 -top-24 size-[28rem] rounded-full opacity-70 blur-3xl"
-          style={{
-            background: "radial-gradient(circle, var(--color-primary) 0%, transparent 62%)",
-            opacity: 0.18,
-          }}
-        />
-        <Link to="/" className="relative flex items-center gap-2">
-          <span className="grid size-10 place-items-center rounded-xl bg-primary font-display text-lg font-bold text-primary-foreground">
-            F
+    <div className="relative flex min-h-screen w-full items-center justify-center bg-background px-6 py-12">
+      {/* Subtle canvas tint glow */}
+      <div
+        className="pointer-events-none fixed left-1/2 top-0 -translate-x-1/2 opacity-40 blur-3xl"
+        style={{
+          width: "48rem",
+          height: "28rem",
+          background: "radial-gradient(circle, var(--color-primary) 0%, transparent 65%)",
+        }}
+      />
+
+      <div className="relative z-10 w-full max-w-[420px] text-center">
+        {/* Logo mark */}
+        <Link to="/" className="mb-10 inline-flex flex-col items-center gap-4">
+          <span className="grid size-12 place-items-center rounded-2xl bg-primary shadow-sm">
+            <span className="size-5 rounded-full border-[3px] border-primary-foreground" />
           </span>
-          <span className="font-display text-xl font-semibold tracking-tight">Finder</span>
+          <div>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-primary">Finder</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Recruitment and live skill sessions.</p>
+          </div>
         </Link>
 
-        <div className="relative mt-auto max-w-md">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-            <Sparkles className="size-3.5" />
-            <span>Firebase Auth Protection</span>
-          </div>
-          <h2 className="mt-4 font-display text-4xl font-semibold leading-tight">
-            Recruit talent and run live skill courses.
-          </h2>
-          <p className="mt-4 text-sm text-muted-foreground">
-            Finder brings jobs, internships, and live skill courses together in a single workspace.
-          </p>
+        {/* Login card */}
+        <div className="rounded-2xl border border-border bg-card p-8 shadow-panel sm:p-10">
+          <h2 className="font-display text-xl font-semibold text-foreground">Welcome back</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Sign in to continue to your workspace.</p>
 
-          <div className="mt-10 space-y-4">
-            {highlights.map((h) => (
-              <div key={h.title} className="flex items-start gap-3">
-                <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-secondary">
-                  <h.icon className="size-4 text-primary" />
-                </span>
-                <div>
-                  <p className="text-sm font-medium">{h.title}</p>
-                  <p className="text-sm text-muted-foreground">{h.copy}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+          <Button
+            size="lg"
+            disabled={loading}
+            onClick={handleGoogleAuth}
+            className="mt-8 h-12 w-full justify-center gap-3 border border-border bg-background text-foreground shadow-sm transition-all hover:bg-secondary hover:text-secondary-foreground"
+          >
+            {loading ? (
+              <Loader2 className="size-5 animate-spin" />
+            ) : (
+              <GoogleMark className="size-5" />
+            )}
+            <span className="text-sm font-medium">Continue with Google</span>
+          </Button>
 
-        <div className="relative mt-auto flex items-center gap-3 pt-12">
-          <div className="flex -space-x-2">
-            {["AK", "MR", "JS", "PL"].map((i) => (
-              <span
-                key={i}
-                className="grid size-8 place-items-center rounded-full border border-border bg-secondary text-[10px] font-semibold"
-              >
-                {i}
-              </span>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground">Trusted by recruiters & instructors</p>
-        </div>
-      </aside>
-
-      {/* Auth panel */}
-      <main className="flex min-h-screen items-center justify-center px-5 py-12 sm:px-10">
-        <div className="w-full max-w-md text-center sm:text-left">
-          <Link to="/" className="mb-10 flex items-center gap-2 lg:hidden">
-            <span className="grid size-9 place-items-center rounded-xl bg-primary font-display font-bold text-primary-foreground">
-              F
+          <div className="mt-8 flex items-center gap-4">
+            <div className="h-px flex-1 bg-border" />
+            <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              <Shield className="size-3" />
+              Protected
             </span>
-            <span className="font-display text-lg font-semibold tracking-tight">Finder</span>
-          </Link>
-
-          <p className="text-eyebrow">Recruiter & Instructor Portal</p>
-          <h1 className="mt-2 text-3xl font-semibold md:text-4xl">
-            Sign in to HireWithFinder
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Use your Google account to access your hiring dashboard and skill sessions.
-          </p>
-
-          <div className="mt-8 rounded-2xl border border-border/80 bg-card p-6 shadow-sm">
-            <Button
-              size="lg"
-              disabled={loading}
-              onClick={handleGoogleAuth}
-              className="h-13 w-full justify-center gap-3 text-base font-medium shadow-sm transition-all hover:scale-[1.01]"
-            >
-              {loading ? (
-                <Loader2 className="size-5 animate-spin" />
-              ) : (
-                <GoogleMark className="size-5" />
-              )}
-              Continue with Google Account
-            </Button>
-
-            <div className="mt-6 space-y-2 text-left text-xs text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-                <span>Instant sign-in via Firebase OAuth (No passwords needed)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-                <span>Seamless sync with your PostgreSQL recruiter profile</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 flex items-center justify-center gap-2 text-xs text-muted-foreground sm:justify-start">
-            <ShieldCheck className="size-4 text-primary" />
-            Protected by enterprise-grade Firebase authentication
+            <div className="h-px flex-1 bg-border" />
           </div>
         </div>
-      </main>
+
+        {/* Footer */}
+        <div className="mt-10 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+          <Link to="/" className="transition-colors hover:text-foreground">
+            Terms of Service
+          </Link>
+          <span className="size-1 rounded-full bg-muted-foreground/40" />
+          <Link to="/" className="transition-colors hover:text-foreground">
+            Privacy Policy
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
