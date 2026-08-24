@@ -106,6 +106,8 @@
   --sidebar-ring: oklch(0.62 0.16 138);
   --panel-shadow: 0 1px 2px 0 oklch(0 0 0 / 4%), 0 14px 34px -26px oklch(0.3 0.03 150 / 45%);
   --canvas-tint: color-mix(in oklab, var(--primary) 8%, transparent);
+  --bg-pattern: oklch(0.62 0.16 138 / 0.14);
+  --bg-pattern-accent: oklch(0.62 0.16 138 / 0.06);
 }
 
 /* Dark theme */
@@ -150,6 +152,8 @@
   --sidebar-ring: oklch(0.855 0.19 118);
   --panel-shadow: 0 1px 0 0 oklch(1 0 0 / 6%) inset, 0 18px 40px -24px oklch(0 0 0 / 70%);
   --canvas-tint: color-mix(in oklab, var(--primary) 10%, transparent);
+  --bg-pattern: oklch(0.855 0.19 118 / 0.16);
+  --bg-pattern-accent: oklch(0.855 0.19 118 / 0.07);
 }
 
 @layer base {
@@ -179,6 +183,14 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-panel);
+}
+
+@utility bg-pattern {
+  background-image:
+    linear-gradient(to right, var(--bg-pattern-accent) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--bg-pattern-accent) 1px, transparent 1px),
+    radial-gradient(circle at center, var(--bg-pattern) 1.5px, transparent 1.5px);
+  background-size: 48px 48px, 48px 48px, 24px 24px;
 }
 
 @utility text-eyebrow {
