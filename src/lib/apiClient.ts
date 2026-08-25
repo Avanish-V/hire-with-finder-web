@@ -5,10 +5,14 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 export interface User {
   id?: string;
+  uid?: string;
   name?: string;
   email?: string;
   role?: string;
   company?: string;
+  designation?: string;
+  location?: string;
+  avatarUrl?: string;
   [key: string]: unknown;
 }
 

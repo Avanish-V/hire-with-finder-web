@@ -20,13 +20,14 @@ import {
 } from "@/components/ui/select";
 import {
   getProfile,
-  updateProfile,
+  updateUserProfile,
   emptyCompanyProfile,
+  getCompanyProfileByOwner,
   type UserProfile,
-  type CompanyProfile,
 } from "@/services/profileService";
 import { uploadToS3 } from "@/services/mediaService";
 import { useAuth } from "@/lib/authContext";
+import { apiRequest } from "@/lib/apiClient";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
@@ -77,7 +78,7 @@ function ProfilePage() {
   const [editingUser, setEditingUser] = useState(false);
   const [editingCompany, setEditingCompany] = useState(false);
 
-  const setCompany = (patch: Partial<CompanyProfile>) =>
+  const setCompany = (patch: Partial<UserProfile["companyProfile"]>) =>
     setProfile((prev) => ({ ...prev, companyProfile: { ...prev.companyProfile, ...patch } }));
 
   const handleImageUpload = async (file: File, kind: "avatar" | "logo") => {
@@ -89,12 +90,19 @@ function ProfilePage() {
         kind === "avatar" ? "recruiters/avatars" : "companies/logos",
       );
       const finalUrl = url || localPreview;
-      if (kind === "avatar") setProfile((prev) => ({ ...prev, avatarUrl: finalUrl }));
-      else setCompany({ logoUrl: finalUrl });
-      toast.success(kind === "avatar" ? "Profile photo updated" : "Company logo updated");
+      if (kind === "avatar") {
+        setProfile((prev) => ({ ...prev, avatarUrl: finalUrl }));
+        toast.success("Profile photo updated");
+      } else {
+        setCompany({ logoUrl: finalUrl });
+        toast.success("Company logo updated");
+      }
     } catch {
-      if (kind === "avatar") setProfile((prev) => ({ ...prev, avatarUrl: localPreview }));
-      else setCompany({ logoUrl: localPreview });
+      if (kind === "avatar") {
+        setProfile((prev) => ({ ...prev, avatarUrl: localPreview }));
+      } else {
+        setCompany({ logoUrl: localPreview });
+      }
       toast("Image preview set locally");
     } finally {
       setUploading(null);
@@ -104,9 +112,11 @@ function ProfilePage() {
   useEffect(() => {
     let isMounted = true;
     getProfile().then((data) => {
-      if (isMounted) {
+      if (isMounted && data) {
         setProfile(data);
       }
+    }).catch((error) => {
+      console.error("Error loading profile:", error);
     });
     return () => {
       isMounted = false;
@@ -117,7 +127,7 @@ function ProfilePage() {
     if (e) e.preventDefault();
     setSavingUser(true);
     try {
-      const updated = await updateProfile({
+      const updated = await updateUserProfile({
         name: profile.name,
         email: profile.email,
         phone: profile.phone,
@@ -127,11 +137,33 @@ function ProfilePage() {
         skills: profile.skills,
         notifications: profile.notifications,
       });
-      setProfile((prev) => ({ ...prev, ...updated }));
-      toast.success("User profile updated");
+      
+      if (updated) {
+        // Update the entire profile state with the returned data
+        setProfile((prev) => ({
+          ...prev,
+          uid: updated.uid || prev.uid,
+          name: updated.name,
+          email: updated.email,
+          phone: updated.phone || "",
+          role: updated.role,
+          bio: updated.bio || "",
+          avatarUrl: updated.avatarUrl || "",
+          skills: updated.skills || [],
+          notifications: updated.notifications || prev.notifications,
+          location: updated.location || prev.location,
+          designation: updated.designation || prev.designation,
+          company: updated.company || prev.company,
+          companyId: updated.companyId || prev.companyId,
+        }));
+        toast.success("User profile updated successfully");
+      } else {
+        toast.error("Failed to update profile");
+      }
       setEditingUser(false);
-    } catch {
-      toast.success("User profile updated");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast.error("Failed to update profile");
       setEditingUser(false);
     } finally {
       setSavingUser(false);
@@ -142,12 +174,42 @@ function ProfilePage() {
     if (e) e.preventDefault();
     setSavingCompany(true);
     try {
-      const updated = await updateProfile({ companyProfile: profile.companyProfile });
-      setProfile((prev) => ({ ...prev, ...updated }));
-      toast.success("Company profile updated");
+      // Use separate company profile endpoint
+      const res = await apiRequest("/api/company/profile", {
+        method: "PUT",
+        body: JSON.stringify({
+          name: profile.companyProfile.name,
+          logoUrl: profile.companyProfile.logoUrl,
+          website: profile.companyProfile.website,
+          industry: profile.companyProfile.industry,
+          size: profile.companyProfile.size,
+          address: profile.companyProfile.address,
+          city: profile.companyProfile.city,
+          country: profile.companyProfile.country,
+          about: profile.companyProfile.about,
+        }),
+      });
+
+      if (res.ok) {
+        const companyData = await res.json();
+        // Update only company profile in state
+        setProfile((prev) => ({
+          ...prev,
+          companyProfile: {
+            ...prev.companyProfile,
+            ...companyData,
+          },
+        }));
+        toast.success("Company profile updated successfully");
+      } else {
+        const errorText = await res.text();
+        console.error("Failed to update company profile:", errorText);
+        toast.error("Failed to update company profile");
+      }
       setEditingCompany(false);
-    } catch {
-      toast.success("Company profile updated");
+    } catch (error) {
+      console.error("Error updating company profile:", error);
+      toast.error("Failed to update company profile");
       setEditingCompany(false);
     } finally {
       setSavingCompany(false);
@@ -155,6 +217,20 @@ function ProfilePage() {
   };
 
   const reload = () => getProfile().then(setProfile);
+
+  const loadCompanyProfile = async () => {
+    try {
+      const companyProfile = await getCompanyProfileByOwner();
+      if (companyProfile) {
+        setProfile((prev) => ({
+          ...prev,
+          companyProfile: companyProfile,
+        }));
+      }
+    } catch (error) {
+      console.error("Error loading company profile:", error);
+    }
+  };
 
   const initials =
     profile.name
@@ -172,7 +248,11 @@ function ProfilePage() {
         description="Manage your personal account and your company account separately."
       />
 
-      <Tabs defaultValue="user" className="mt-2">
+      <Tabs defaultValue="user" className="mt-2" onValueChange={(value) => {
+        if (value === "company") {
+          loadCompanyProfile();
+        }
+      }}>
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="user" className="gap-1.5">
             <User className="size-4" /> User profile

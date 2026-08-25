@@ -219,10 +219,10 @@ function PostJobScreen({
 }) {
   const editing = Boolean(job);
   const [selectedType, setSelectedType] = useState<Job["type"]>(job?.type ?? "Internship");
+  const [posterType, setPosterType] = useState<"USER_PROFILE" | "COMPANY_PROFILE">("USER_PROFILE");
 
   const handleSubmit = () => {
     const title = (document.getElementById("job-title") as HTMLInputElement)?.value;
-    const company = (document.getElementById("job-company") as HTMLInputElement)?.value;
     const location = (document.getElementById("job-location") as HTMLInputElement)?.value;
     const stipend = (document.getElementById("job-pay") as HTMLInputElement)?.value;
     const skillsRaw = (document.getElementById("job-skills") as HTMLInputElement)?.value;
@@ -232,13 +232,13 @@ function PostJobScreen({
 
     onSubmit({
       title: title || "Frontend Engineering Intern",
-      company: company || "Northwind Labs",
       type: selectedType,
       location: location || "Remote · India",
       stipend: stipend || "₹25,000 / mo",
       skills,
       status: "Open",
       description: desc,
+      posterType, // Add posterType to the submission
     } as any);
 
     onClose();
@@ -263,6 +263,60 @@ function PostJobScreen({
       onDelete={onDelete}
       deleteLabel="Delete role"
     >
+      <FormSection title="Post as" hint="Choose how you want to appear on this job listing.">
+        <div className="grid gap-3">
+          <div
+            onClick={() => setPosterType("USER_PROFILE")}
+            className={`flex items-start gap-3 cursor-pointer rounded-lg border-2 p-4 transition-colors ${
+              posterType === "USER_PROFILE"
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50"
+            }`}
+          >
+            <div className="mt-0.5">
+              <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
+                posterType === "USER_PROFILE" ? "border-primary" : "border-muted-foreground"
+              }`}>
+                {posterType === "USER_PROFILE" && (
+                  <div className="h-2 w-2 rounded-full bg-primary"></div>
+                )}
+              </div>
+            </div>
+            <div className="flex-1">
+              <p className="font-medium">Your Profile</p>
+              <p className="text-sm text-muted-foreground">
+                Post as your personal recruiter profile. Candidates will see your name.
+              </p>
+            </div>
+          </div>
+
+          <div
+            onClick={() => setPosterType("COMPANY_PROFILE")}
+            className={`flex items-start gap-3 cursor-pointer rounded-lg border-2 p-4 transition-colors ${
+              posterType === "COMPANY_PROFILE"
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50"
+            }`}
+          >
+            <div className="mt-0.5">
+              <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
+                posterType === "COMPANY_PROFILE" ? "border-primary" : "border-muted-foreground"
+              }`}>
+                {posterType === "COMPANY_PROFILE" && (
+                  <div className="h-2 w-2 rounded-full bg-primary"></div>
+                )}
+              </div>
+            </div>
+            <div className="flex-1">
+              <p className="font-medium">Company Profile</p>
+              <p className="text-sm text-muted-foreground">
+                Post on behalf of your company. Candidates will see your company name and logo.
+              </p>
+            </div>
+          </div>
+        </div>
+      </FormSection>
+
       <FormSection title="Role basics" hint="What you're hiring for and where.">
         <div className="grid gap-2">
           <Label htmlFor="job-title">Role title</Label>
@@ -274,15 +328,6 @@ function PostJobScreen({
           />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="grid gap-2">
-            <Label htmlFor="job-company">Company</Label>
-            <Input
-              id="job-company"
-              placeholder="Northwind Labs"
-              defaultValue={job?.company}
-              required
-            />
-          </div>
           <div className="grid gap-2">
             <Label htmlFor="job-type">Type</Label>
             <Select
