@@ -120,9 +120,9 @@ export function mapBackendSession(raw: BackendCoursePayload): LiveSession {
     ? raw.modules.map((m: any, idx: number) => ({
         title: m.title || `Module ${idx + 1}`,
         duration: m.duration || "20 min",
-        detail: m.description || m.detail || "Curriculum walkthrough.",
+        detail: m.description || m.detail || "",
       }))
-    : defaultModules;
+    : [];
 
   // Determine status
   const validStatus: LiveSession["status"] =
@@ -220,7 +220,7 @@ export async function getSessionDetails(
   id: string,
   sessionTitle: string,
 ): Promise<{ modules: SessionModule[]; students: Applicant[] }> {
-  let modules = defaultModules;
+  let modules: SessionModule[] = [];
   let students: Applicant[] = peopleFor(sessionTitle, "Session");
 
   try {
@@ -231,12 +231,12 @@ export async function getSessionDetails(
         modules = contentData.modules.map((m: any, idx: number) => ({
           title: m.title || `Module ${idx + 1}`,
           duration: m.duration || "20 min",
-          detail: m.description || m.detail || "Curriculum walkthrough.",
+          detail: m.description || m.detail || "",
         }));
       }
     }
   } catch {
-    console.debug(`Content API for course ${id} unavailable, using static modules.`);
+    console.debug(`Content API for course ${id} unavailable, using empty modules.`);
   }
 
   try {
@@ -272,7 +272,7 @@ export async function getSessionDetails(
       }
     }
   } catch {
-    console.debug(`Students API for course ${id} unavailable, using static students.`);
+    console.debug(`Students API for course ${id} unavailable, using empty students list.`);
   }
 
   return { modules, students };
@@ -325,7 +325,7 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
     tags: sessionData.tags || ["Live"],
     thumbnail: sessionData.thumbnail || undefined,
     summary: backendBody.description,
-    modules: sessionData.modules || defaultModules,
+    modules: sessionData.modules || [],
   };
 
   try {

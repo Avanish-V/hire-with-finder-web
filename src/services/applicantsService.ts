@@ -225,7 +225,7 @@ function mapFinderProfile(data: Record<string, unknown>, applicant: Applicant): 
   return {
     tagline: String(baseProfile.tagline || applicant.role).trim(),
     summary: String(data.summary || baseProfile.summary || `${applicant.name} applied to ${applicant.target}.`).trim(),
-    phone: String(contact.phoneNumber || "").trim() || "+91 90000 00000",
+    phone: String(contact.phoneNumber || "").trim(),
     gender,
     location: "India",
     verified: true,
@@ -241,10 +241,7 @@ function mapFinderProfile(data: Record<string, unknown>, applicant: Applicant): 
       courseEnd: String(edu.end || "—"),
       cgpa: String(edu.cgpa || "—"),
     },
-    skills: skills.length > 0 ? skills : [
-      { name: "Communication", level: "Intermediate" },
-      { name: "Problem solving", level: "Intermediate" },
-    ],
+    skills: skills.length > 0 ? skills : [],
     experience: [],
   };
 }

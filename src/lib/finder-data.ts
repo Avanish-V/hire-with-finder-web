@@ -28,7 +28,7 @@ export type Job = {
   description?: string;
 };
 
-export const jobs: Job[] = []; // TODO: Handle cases where jobs are not available from API
+export const jobs: Job[] = [];
 
 export type LiveSession = {
   id: string;
@@ -55,9 +55,9 @@ export type SessionModule = {
   detail?: string;
 };
 
-export const defaultModules: SessionModule[] = []; // TODO: Handle cases where default modules are not available from API
+export const defaultModules: SessionModule[] = [];
 
-export const sessions: LiveSession[] = []; // TODO: Handle cases where sessions are not available from API
+export const sessions: LiveSession[] = [];
 
 export type Applicant = {
   id: string;
@@ -74,7 +74,7 @@ export type Applicant = {
   avatarUrl?: string | null;
 };
 
-export const applicants: Applicant[] = []; // TODO: Handle cases where applicants are not available from API
+export const applicants: Applicant[] = [];
 
 export const stageTone: Record<Applicant["stage"], string> = {
   New: "bg-muted text-muted-foreground",
@@ -111,19 +111,19 @@ export type CandidateProfile = {
   experience: { role: string; org: string; period: string }[];
 };
 
-const profiles: Record<string, CandidateProfile> = {}; // TODO: Handle cases where candidate profiles are not available from API
+const profiles: Record<string, CandidateProfile> = {};
 
 export function profileFor(a: Applicant): CandidateProfile {
   return (
     profiles[a.id] ?? {
       tagline: a.role,
-      summary: `${a.name} applied to ${a.target}. Profile synced from their Finder account.`,
-      phone: "+91 90000 00000",
+      summary: `${a.name} applied to ${a.target}.`,
+      phone: "",
       gender: "Unspecified",
-      location: "India",
-      verified: a.match >= 80,
-      githubUsername: a.name.toLowerCase().replace(/\s+/g, ""),
-      auraPoints: a.match * 12,
+      location: "",
+      verified: false,
+      githubUsername: undefined,
+      auraPoints: 0,
       education: {
         college: "Not provided",
         course: "Not provided",
@@ -132,10 +132,7 @@ export function profileFor(a: Applicant): CandidateProfile {
         courseEnd: "—",
         cgpa: "—",
       },
-      skills: [
-        { name: "Communication", level: "Intermediate" },
-        { name: "Problem solving", level: "Intermediate" },
-      ],
+      skills: [],
       experience: [],
     }
   );

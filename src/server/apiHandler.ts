@@ -6,22 +6,22 @@ let serverJobs = [...jobs];
 let serverSessions = [...sessions];
 let serverApplicants = [...applicants];
 let serverProfile = {
-  name: "Aditya Kulkarni",
-  email: "aditya@finder.app",
-  phone: "+91 98200 11223",
+  name: "",
+  email: "",
+  phone: "",
   role: "recruiter",
-  company: "Finder Internal",
-  location: "Bengaluru, India",
-  bio: "Hiring for engineering and design across internships and full-time roles. I also run weekly live sessions on interview prep.",
-  skills: ["Hiring", "React", "Node.js", "Interviewing"],
+  company: "",
+  location: "",
+  bio: "",
+  skills: [],
   notifications: {
     applicantAlerts: true,
     sessionEnrollments: true,
     weeklyDigest: false,
   },
-  postsCount: 8,
-  sessionsCount: 12,
-  applicantsCount: 426,
+  postsCount: 0,
+  sessionsCount: 0,
+  applicantsCount: 0,
 };
 
 function json(data: unknown, status = 200) {
@@ -89,9 +89,9 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       activeJobs: serverJobs.filter((j) => j.type !== "Internship" && j.status === "Open").length,
       activeInternships: serverJobs.filter((j) => j.type === "Internship" && j.status === "Open")
         .length,
-      totalApplications: serverApplicants.length + 419,
+      totalApplications: serverApplicants.length,
       liveSessions: serverSessions.filter((s) => s.status !== "Completed").length,
-      hireRate: "18%",
+      hireRate: "0%",
     });
   }
 
@@ -282,13 +282,13 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
   // Auth Supabase session exchange
   if (path === "/api/auth/supabase-session" && method === "POST") {
     return json({
-      token: "mock-jwt-token",
+      token: "",
       user: {
-        id: "user-1",
-        name: "Aditya Kulkarni",
-        email: "aditya@finder.app",
+        id: "",
+        name: "",
+        email: "",
         role: "recruiter",
-        company: "Finder Internal",
+        company: "",
       },
     });
   }
