@@ -167,7 +167,7 @@ function JobApplicantsScreen({ job, onClose }: { job: Job; onClose: () => void }
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
       <div className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 md:px-8">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 md:px-8">
           <Button variant="ghost" size="icon" aria-label="Close applicants" onClick={onClose}>
             <X className="size-4" />
           </Button>
@@ -180,7 +180,7 @@ function JobApplicantsScreen({ job, onClose }: { job: Job; onClose: () => void }
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl px-4 py-6 md:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
         <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
           {stages.map((s) => (
             <div key={s} className="panel p-4">
@@ -585,7 +585,7 @@ function JobsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       <PageHeader
         eyebrow="Recruitment"
         title="Jobs & internships"
@@ -645,7 +645,7 @@ function JobsPage() {
                   </Button>
                 </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {groups[key].map((job) => (
                     <JobCard
                       key={job.id}
