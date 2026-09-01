@@ -79,28 +79,29 @@ function JobCard({
           <h3 className="mt-2 text-lg font-semibold">{job.title}</h3>
           <p className="text-sm text-muted-foreground">{job.company}</p>
         </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Edit role"
-            title="Edit role"
-            onClick={onEdit}
-            className="size-8 text-muted-foreground hover:text-foreground"
-          >
-            <Edit className="size-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Delete role"
-            title="Delete role"
-            onClick={onDelete}
-            className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Role actions"
+              className="size-8 text-muted-foreground"
+            >
+              <MoreHorizontal className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={onEdit} className="gap-2">
+              <Edit className="size-3.5" /> Edit role
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={onDelete}
+              className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
+            >
+              <Trash2 className="size-3.5" /> Delete role
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
