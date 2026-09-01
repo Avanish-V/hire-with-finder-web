@@ -4,6 +4,7 @@ import {
   defaultModules,
   type LiveSession,
   type SessionModule,
+  type SessionSubModule,
   type Applicant,
 } from "@/lib/finder-data";
 import { peopleFor } from "@/components/PeopleList";
@@ -62,6 +63,40 @@ export interface BackendStudentPayload {
 }
 
 /**
+ * Safely maps backend module and submodule payload to frontend SessionModule array
+ */
+export function mapBackendModules(rawModules?: any[]): SessionModule[] {
+  if (!Array.isArray(rawModules) || rawModules.length === 0) return [];
+  return rawModules.map((m: any, idx: number) => {
+    const subMods: SessionSubModule[] = Array.isArray(m.subModules) && m.subModules.length > 0
+      ? m.subModules.map((sm: any, sIdx: number) => ({
+          id: sm.id ? String(sm.id) : undefined,
+          title: sm.title || `Topic ${sIdx + 1}`,
+          description: sm.description || "",
+          order: sm.order ?? sIdx,
+        }))
+      : [];
+
+    const topicList: string[] = Array.isArray(m.topics) && m.topics.length > 0
+      ? m.topics
+      : subMods.map((sm) => sm.title);
+
+    const headingName = m.heading || m.title || `Heading ${idx + 1}`;
+
+    return {
+      id: m.id ? String(m.id) : undefined,
+      heading: headingName,
+      title: headingName,
+      topics: topicList,
+      description: m.description || m.detail || "",
+      detail: m.description || m.detail || "",
+      order: m.order ?? idx,
+      subModules: subMods,
+    };
+  });
+}
+
+/**
  * Safely maps a backend course/session payload to a frontend LiveSession model.
  * Employs field-level fallbacks for any missing/null fields.
  */
@@ -76,38 +111,22 @@ export function mapBackendSession(raw: BackendCoursePayload): LiveSession {
         year: "numeric",
       });
     } catch {
-      displayDate = "Aug 25, 2026";
+      // Keep default
     }
   }
 
-  // Format price
-  let displayPrice = "Free";
-  if (raw.price !== undefined && raw.price !== null && raw.price !== "" && raw.price !== 0 && raw.price !== "0") {
-    if (typeof raw.price === "number") {
-      displayPrice = `₹${raw.price.toLocaleString("en-IN")}`;
-    } else {
-      const priceStr = String(raw.price).trim();
-      displayPrice = priceStr.startsWith("₹") || priceStr.startsWith("$") ? priceStr : `₹${priceStr}`;
-    }
-  }
+  // Price formatting
+  const displayPrice = "Free";
 
-  // Format tags
-  let tags: string[] = ["Live", "Workshop"];
-  if (Array.isArray(raw.tags) && raw.tags.length > 0) {
+  // Determine tags
+  let tags: string[] = [];
+  if (Array.isArray(raw.tags)) {
     tags = raw.tags;
-  } else if (raw.category && typeof raw.category === "string" && raw.category.trim().length > 0) {
+  } else if (typeof raw.category === "string" && raw.category.trim()) {
     tags = raw.category.split(",").map((t) => t.trim()).filter(Boolean);
   }
 
-  // Determine host / instructor
-  const host =
-    raw.instructor?.trim() ||
-    raw.host?.trim() ||
-    raw.postedByInfo?.companyName?.trim() ||
-    raw.postedByInfo?.name?.trim() ||
-    "Finder Careers";
-
-  // Determine meet link
+  // Meet link fallback
   const meetLink =
     raw.live_url?.trim() ||
     raw.liveUrl?.trim() ||
@@ -116,13 +135,7 @@ export function mapBackendSession(raw: BackendCoursePayload): LiveSession {
     "https://meet.google.com/fdr-live";
 
   // Determine modules
-  const rawModules = Array.isArray(raw.modules) && raw.modules.length > 0
-    ? raw.modules.map((m: any, idx: number) => ({
-        title: m.title || `Module ${idx + 1}`,
-        duration: m.duration || "20 min",
-        detail: m.description || m.detail || "",
-      }))
-    : [];
+  const rawModules = mapBackendModules(raw.modules);
 
   // Determine status
   const validStatus: LiveSession["status"] =
@@ -143,14 +156,14 @@ export function mapBackendSession(raw: BackendCoursePayload): LiveSession {
   return {
     id: raw.id || raw._id || `s-${Date.now()}`,
     title: raw.title?.trim() || "Live Skill Session",
-    host,
+    host: raw.instructor?.trim() || raw.host?.trim() || "Finder Careers",
     date: dateStr,
     time: timeStr,
     duration: raw.duration?.trim() || "90 min",
-    seats: raw.seats || raw.max_seats || 100,
+    seats: typeof raw.seats === "number" ? raw.seats : 100,
     enrolled:
-      raw.enrolled !== undefined
-        ? Number(raw.enrolled)
+      typeof raw.enrolled === "number"
+        ? raw.enrolled
         : Array.isArray(raw.enrollments)
           ? raw.enrollments.length
           : 0,
@@ -219,8 +232,9 @@ export async function getSessions(): Promise<LiveSession[]> {
 export async function getSessionDetails(
   id: string,
   sessionTitle: string,
+  initialModules: SessionModule[] = [],
 ): Promise<{ modules: SessionModule[]; students: Applicant[] }> {
-  let modules: SessionModule[] = [];
+  let modules: SessionModule[] = initialModules && initialModules.length > 0 ? initialModules : [];
   let students: Applicant[] = peopleFor(sessionTitle, "Session");
 
   try {
@@ -228,15 +242,26 @@ export async function getSessionDetails(
     if (contentRes.ok) {
       const contentData = (await contentRes.json()) as BackendCoursePayload;
       if (Array.isArray(contentData.modules) && contentData.modules.length > 0) {
-        modules = contentData.modules.map((m: any, idx: number) => ({
-          title: m.title || `Module ${idx + 1}`,
-          duration: m.duration || "20 min",
-          detail: m.description || m.detail || "",
-        }));
+        modules = mapBackendModules(contentData.modules);
       }
     }
   } catch {
-    console.debug(`Content API for course ${id} unavailable, using empty modules.`);
+    console.debug(`Content API for course ${id} unavailable, using existing modules.`);
+  }
+
+  // Fallback: If modules still empty, query course detail endpoint
+  if (modules.length === 0) {
+    try {
+      const courseRes = await apiRequest(`/api/courses/${id}`);
+      if (courseRes.ok) {
+        const courseData = (await courseRes.json()) as BackendCoursePayload;
+        if (Array.isArray(courseData.modules) && courseData.modules.length > 0) {
+          modules = mapBackendModules(courseData.modules);
+        }
+      }
+    } catch {
+      // ignore
+    }
   }
 
   try {
@@ -266,7 +291,7 @@ export async function getSessionDetails(
             match: s.progress || 100,
             stage: (s.status as Applicant["stage"]) || "Shortlisted",
             email: s.email || "student@example.com",
-            externalUserId: s.externalUserId || s.oauth_provider_id || null,
+            externalUserId: s.user_id || s.userId || s.externalUserId || s.oauth_provider_id || s.id || null,
           };
         });
       }
@@ -282,12 +307,33 @@ export async function getSessionDetails(
  * Create a new live skill session via POST /api/courses
  */
 export async function createSession(sessionData: Partial<LiveSession>): Promise<LiveSession> {
-  const priceNum =
-    typeof sessionData.price === "number"
-      ? sessionData.price
-      : sessionData.price === "Free"
-        ? 0
-        : parseInt(String(sessionData.price || "0").replace(/[^0-9]/g, ""), 10) || 0;
+  const formattedModules = Array.isArray(sessionData.modules)
+    ? sessionData.modules.map((m, idx) => {
+        const headingTitle = (m.heading || m.title || `Heading ${idx + 1}`).trim();
+        const subMods = Array.isArray(m.subModules) && m.subModules.length > 0
+          ? m.subModules.map((sm, sIdx) => ({
+              title: sm.title.trim(),
+              description: (sm.description || "").trim(),
+              order: sm.order ?? sIdx,
+            }))
+          : Array.isArray(m.topics)
+          ? m.topics.filter(Boolean).map((t, tIdx) => ({
+              title: String(t).trim(),
+              description: "",
+              order: tIdx,
+            }))
+          : [];
+
+        return {
+          heading: headingTitle,
+          title: headingTitle,
+          topics: Array.isArray(m.topics) ? m.topics : subMods.map((sm) => sm.title),
+          description: (m.description || m.detail || "").trim(),
+          order: m.order ?? idx,
+          subModules: subMods,
+        };
+      })
+    : [];
 
   const backendBody = {
     title: (sessionData.title || "Live Skill Session").trim(),
@@ -297,7 +343,6 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
       "A live, hands-on online session run on Google Meet. Join with the link below at the scheduled time."
     ).trim(),
     duration: (sessionData.duration || "90 min").trim(),
-    price: priceNum,
     thumbnail: sessionData.thumbnail || "",
     liveUrl: sessionData.meetLink || "https://meet.google.com/fdr-live",
     category: sessionData.tags?.join(", ") || "Live Workshop",
@@ -306,7 +351,7 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
     seats: sessionData.seats || 100,
     date: sessionData.date || "",
     time: sessionData.time || "",
-    modules: sessionData.modules || [],
+    modules: formattedModules,
   };
 
   const newLocalSession: LiveSession = {
@@ -318,7 +363,7 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
     duration: backendBody.duration,
     seats: sessionData.seats || 100,
     enrolled: 0,
-    price: sessionData.price || "Free",
+    price: "Free",
     level: sessionData.level || "Beginner",
     status: "Scheduled",
     meetLink: backendBody.liveUrl,
@@ -346,26 +391,6 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
         modules: sessionData.modules || mapped.modules,
       };
 
-      if (data.id && Array.isArray(sessionData.modules)) {
-        for (let i = 0; i < sessionData.modules.length; i++) {
-          const mod = sessionData.modules[i];
-          if (mod) {
-            try {
-              await apiRequest(`/api/courses/${data.id}/modules`, {
-                method: "POST",
-                body: JSON.stringify({
-                  title: mod.title,
-                  description: mod.detail || "",
-                  order: i,
-                }),
-              });
-            } catch {
-              // Non-critical module sync failure
-            }
-          }
-        }
-      }
-
       inMemorySessions.unshift(combined);
       return combined;
     }
@@ -384,21 +409,39 @@ export async function updateSession(
   id: string,
   updates: Partial<LiveSession>,
 ): Promise<LiveSession | null> {
-  const priceNum =
-    updates.price !== undefined
-      ? typeof updates.price === "number"
-        ? updates.price
-        : updates.price === "Free"
-          ? 0
-          : parseInt(String(updates.price).replace(/[^0-9]/g, ""), 10) || 0
-      : undefined;
+  const formattedModules = Array.isArray(updates.modules)
+    ? updates.modules.map((m, idx) => {
+        const headingTitle = (m.heading || m.title || `Heading ${idx + 1}`).trim();
+        const subMods = Array.isArray(m.subModules) && m.subModules.length > 0
+          ? m.subModules.map((sm, sIdx) => ({
+              title: sm.title.trim(),
+              description: (sm.description || "").trim(),
+              order: sm.order ?? sIdx,
+            }))
+          : Array.isArray(m.topics)
+          ? m.topics.filter(Boolean).map((t, tIdx) => ({
+              title: String(t).trim(),
+              description: "",
+              order: tIdx,
+            }))
+          : [];
+
+        return {
+          heading: headingTitle,
+          title: headingTitle,
+          topics: Array.isArray(m.topics) ? m.topics : subMods.map((sm) => sm.title),
+          description: (m.description || m.detail || "").trim(),
+          order: m.order ?? idx,
+          subModules: subMods,
+        };
+      })
+    : undefined;
 
   const backendUpdates: Record<string, unknown> = {};
   if (updates.title) backendUpdates.title = updates.title.trim();
   if (updates.host) backendUpdates.instructor = updates.host.trim();
   if (updates.summary) backendUpdates.description = updates.summary.trim();
   if (updates.duration) backendUpdates.duration = updates.duration.trim();
-  if (priceNum !== undefined) backendUpdates.price = priceNum;
   if (updates.thumbnail !== undefined) backendUpdates.thumbnail = updates.thumbnail;
   if (updates.meetLink !== undefined) backendUpdates.liveUrl = updates.meetLink;
   if (updates.level) backendUpdates.level = updates.level;
@@ -406,7 +449,7 @@ export async function updateSession(
   if (updates.seats !== undefined) backendUpdates.seats = updates.seats;
   if (updates.date !== undefined) backendUpdates.date = updates.date;
   if (updates.time !== undefined) backendUpdates.time = updates.time;
-  if (updates.modules !== undefined) backendUpdates.modules = updates.modules;
+  if (formattedModules !== undefined) backendUpdates.modules = formattedModules;
 
   try {
     const res = await apiRequest(`/api/courses/${id}`, {

@@ -15,8 +15,11 @@ import {
   PlayCircle,
   Pencil,
   Search,
-  Check,
   Loader2,
+  Layers,
+  Sparkles,
+  CheckCircle2,
+  BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
@@ -26,7 +29,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { Switch } from "@/components/ui/switch";
 import { FullScreenComposer, FormSection } from "@/components/FullScreenComposer";
 import { PeopleList, peopleFor } from "@/components/PeopleList";
 
@@ -41,9 +43,9 @@ import {
   defaultModules,
   type LiveSession,
   type SessionModule,
+  type SessionSubModule,
   type Applicant,
 } from "@/lib/finder-data";
-import { apiRequest } from "@/lib/apiClient";
 import { uploadToS3 } from "@/services/mediaService";
 import {
   getSessions,
@@ -51,7 +53,6 @@ import {
   updateSession,
   deleteSession,
   getSessionDetails,
-  enrollInSession,
 } from "@/services/sessionsService";
 
 export const Route = createFileRoute("/sessions")({
@@ -112,6 +113,10 @@ function SessionCard({
   onDelete: () => void;
 }) {
   const pct = Math.min(100, Math.round((s.enrolled / (s.seats || 100)) * 100));
+  const totalHeadings = s.modules?.length || 0;
+  const totalTopics =
+    s.modules?.reduce((acc, m) => acc + (m.topics?.length || m.subModules?.length || 0), 0) || 0;
+
   return (
     <article className="panel overflow-hidden transition-all duration-200 hover:border-primary/30">
       <div className="relative">
@@ -123,12 +128,13 @@ function SessionCard({
             )}
             {s.status}
           </Badge>
-          <Badge
-            variant="secondary"
-            className={s.price === "Free" ? "bg-success/15 text-success" : ""}
-          >
-            {s.price === "Free" ? "Free" : `Paid · ${s.price}`}
-          </Badge>
+          {totalHeadings > 0 && (
+            <Badge variant="secondary" className="bg-background/80 backdrop-blur-xs font-normal text-xs">
+              <Layers className="size-3 mr-1" />
+              {totalHeadings} {totalHeadings === 1 ? "Heading" : "Headings"}
+              {totalTopics > 0 ? ` · ${totalTopics} Topics` : ""}
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -203,15 +209,13 @@ function FullScreenSession({
     modules: SessionModule[];
     students: Applicant[];
   }>({
-    modules: s.modules ?? defaultModules,
+    modules: s.modules && s.modules.length > 0 ? s.modules : defaultModules,
     students: peopleFor(s.title, "Session"),
   });
-  const [enrolling, setEnrolling] = useState(false);
-  const [enrolled, setEnrolled] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    getSessionDetails(s.id, s.title).then((data) => {
+    getSessionDetails(s.id, s.title, s.modules ?? defaultModules).then((data) => {
       if (isMounted) {
         setDetails(data);
       }
@@ -219,23 +223,14 @@ function FullScreenSession({
     return () => {
       isMounted = false;
     };
-  }, [s.id, s.title]);
+  }, [s.id, s.title, s.modules]);
 
-  const handleEnroll = async () => {
-    setEnrolling(true);
-    const result = await enrollInSession(s.id);
-    setEnrolling(false);
-    if (result.success) {
-      setEnrolled(true);
-      toast.success("Enrolled successfully!", {
-        description: `You are now enrolled in "${s.title}".`,
-      });
-    } else {
-      toast.error(result.message);
-    }
-  };
-
-  const modules = details.modules;
+  const modules =
+    details.modules && details.modules.length > 0
+      ? details.modules
+      : s.modules && s.modules.length > 0
+        ? s.modules
+        : [];
   const students = details.students;
   const pct = Math.min(100, Math.round((s.enrolled / (s.seats || 100)) * 100));
 
@@ -302,23 +297,76 @@ function FullScreenSession({
           </div>
 
           <section className="panel mt-6 p-5">
-            <h2 className="text-lg font-semibold">Modules</h2>
-            <ol className="mt-4 space-y-3">
-              {modules.map((m, i) => (
-                <li key={`${m.title}-${i}`} className="flex gap-3 rounded-lg border border-border p-3">
-                  <span className="grid size-7 shrink-0 place-items-center rounded-md bg-secondary text-xs font-semibold">
-                    {i + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{m.title}</p>
-                    {m.detail && <p className="text-xs text-muted-foreground">{m.detail}</p>}
-                  </div>
-                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                    {m.duration}
-                  </span>
-                </li>
-              ))}
-            </ol>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Curriculum & Topics Covered</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Structured session headings and covered topics
+                </p>
+              </div>
+              <Badge variant="outline">
+                {modules.length} {modules.length === 1 ? "Heading" : "Headings"}
+              </Badge>
+            </div>
+
+            {modules.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">No headings or topics added yet for this session.</p>
+            ) : (
+              <div className="mt-4 space-y-4">
+                {modules.map((m, i) => {
+                  const headingName = m.heading || m.title || `Heading ${i + 1}`;
+                  const topicsList =
+                    m.topics && m.topics.length > 0
+                      ? m.topics
+                      : m.subModules?.map((sm) => sm.title) || [];
+
+                  return (
+                    <div
+                      key={`${headingName}-${i}`}
+                      className="rounded-xl border border-border bg-card/60 p-4 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                          {i + 1}
+                        </span>
+                        <div className="flex-1">
+                          <h3 className="text-base font-semibold text-foreground">{headingName}</h3>
+                          {(m.description || m.detail) && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {m.description || m.detail}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Topics covered under this heading */}
+                      {topicsList.length > 0 ? (
+                        <div className="mt-3.5 pl-10 space-y-2 border-t border-border/50 pt-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                            <BookOpen className="size-3" /> Topics covered in this heading:
+                          </p>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {topicsList.map((topic, tIdx) => (
+                              <div
+                                key={tIdx}
+                                className="flex items-center gap-2 rounded-lg bg-secondary/40 px-3 py-2 text-xs border border-border/40"
+                              >
+                                <CheckCircle2 className="size-3.5 text-primary shrink-0" />
+                                <span className="font-medium text-foreground">{topic}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="mt-2 pl-10 text-xs italic text-muted-foreground">
+                          General discussion for this heading.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           <section className="panel mt-6 p-5">
@@ -346,19 +394,19 @@ function FullScreenSession({
 
         <aside className="space-y-4">
           <div className="panel p-5">
-            <p className="text-eyebrow">Pricing</p>
-            <p className="mt-1 font-display text-2xl font-semibold text-primary">
-              {s.price === "Free" ? "Free" : s.price}
-            </p>
-            <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-              <p className="flex items-center gap-2">
-                <Calendar className="size-4" /> {s.date}
+            <p className="text-eyebrow">Session details</p>
+            <div className="mt-4 space-y-3 text-sm text-muted-foreground">
+              <p className="flex items-center gap-2.5">
+                <Calendar className="size-4 text-primary" /> 
+                <span><strong className="text-foreground">Date:</strong> {s.date}</span>
               </p>
-              <p className="flex items-center gap-2">
-                <Clock className="size-4" /> {s.time}
+              <p className="flex items-center gap-2.5">
+                <Clock className="size-4 text-primary" /> 
+                <span><strong className="text-foreground">Time:</strong> {s.time}</span>
               </p>
-              <p className="flex items-center gap-2">
-                <Users className="size-4" /> {s.enrolled}/{s.seats} enrolled
+              <p className="flex items-center gap-2.5">
+                <Users className="size-4 text-primary" /> 
+                <span><strong className="text-foreground">Capacity:</strong> {s.enrolled}/{s.seats} enrolled</span>
               </p>
             </div>
             <Progress value={pct} className="mt-4 h-1.5" />
@@ -376,15 +424,8 @@ function FullScreenSession({
               <Copy className="ml-auto size-3.5" />
             </button>
             <Button
-              className="mt-3 w-full"
-              disabled={enrolling || enrolled}
-              onClick={handleEnroll}
-            >
-              {enrolled ? <><Check className="size-4 mr-1" /> Enrolled</> : enrolling ? "Enrolling…" : "Enroll in session"}
-            </Button>
-            <Button
               variant="outline"
-              className="mt-2 w-full"
+              className="mt-3 w-full"
               onClick={() => toast.success("Enrollees notified of session updates")}
             >
               Notify enrollees
@@ -408,13 +449,37 @@ function NewSessionScreen({
   onDelete?: () => void;
 }) {
   const editing = Boolean(session);
-  const [paid, setPaid] = useState(session ? session.price !== "Free" : true);
   const [thumb, setThumb] = useState<string | null>(session?.thumbnail ?? null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [level, setLevel] = useState<LiveSession["level"]>(session?.level ?? "Beginner");
-  const [modules, setModules] = useState<SessionModule[]>(
-    session?.modules ?? (editing ? defaultModules : [{ title: "", duration: "" }]),
-  );
+  
+  // Format initial modules to have heading & topics array
+  const [modules, setModules] = useState<
+    Array<{
+      heading: string;
+      description?: string;
+      topics: string[];
+    }>
+  >(() => {
+    if (session?.modules && session.modules.length > 0) {
+      return session.modules.map((m) => ({
+        heading: m.heading || m.title || "",
+        description: m.description || m.detail || "",
+        topics:
+          m.topics && m.topics.length > 0
+            ? m.topics
+            : m.subModules?.map((sm) => sm.title) || [""],
+      }));
+    }
+    return [
+      {
+        heading: "",
+        description: "",
+        topics: [""],
+      },
+    ];
+  });
+
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Convert 24-hour time (HH:mm) to 12-hour format with AM/PM
@@ -423,7 +488,7 @@ function NewSessionScreen({
     
     const [hours24, minutes] = time24.split(':').map(Number);
     const period = hours24 >= 12 ? 'PM' : 'AM';
-    const hours12 = hours24 % 12 || 12; // Convert 0 to 12 for midnight
+    const hours12 = hours24 % 12 || 12;
     
     return `${hours12}:${minutes.toString().padStart(2, '0')} ${period} IST`;
   };
@@ -432,10 +497,7 @@ function NewSessionScreen({
   const formatTimeTo24Hour = (time12: string): string => {
     if (!time12) return "";
     
-    // Remove IST and trim
     const cleanTime = time12.replace(/IST/gi, '').trim();
-    
-    // Parse time like "2:06 PM" or "2:06 AM"
     const match = cleanTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
     if (!match) return "";
     
@@ -443,7 +505,6 @@ function NewSessionScreen({
     const minutes = match[2];
     const period = match[3].toUpperCase();
     
-    // Convert to 24-hour format
     if (period === 'PM' && hours !== 12) {
       hours += 12;
     } else if (period === 'AM' && hours === 12) {
@@ -453,19 +514,99 @@ function NewSessionScreen({
     return `${hours.toString().padStart(2, '0')}:${minutes}`;
   };
 
+  // Heading handlers
+  const handleAddHeading = () => {
+    setModules((prev) => [
+      ...prev,
+      {
+        heading: "",
+        description: "",
+        topics: [""],
+      },
+    ]);
+  };
+
+  const handleRemoveHeading = (headingIndex: number) => {
+    setModules((prev) => prev.filter((_, idx) => idx !== headingIndex));
+  };
+
+  const handleUpdateHeading = (
+    headingIndex: number,
+    field: "heading" | "description",
+    value: string
+  ) => {
+    setModules((prev) =>
+      prev.map((mod, idx) => (idx === headingIndex ? { ...mod, [field]: value } : mod))
+    );
+  };
+
+  // Topics handlers
+  const handleAddTopic = (headingIndex: number) => {
+    setModules((prev) =>
+      prev.map((mod, idx) => {
+        if (idx !== headingIndex) return mod;
+        return {
+          ...mod,
+          topics: [...mod.topics, ""],
+        };
+      })
+    );
+  };
+
+  const handleRemoveTopic = (headingIndex: number, topicIndex: number) => {
+    setModules((prev) =>
+      prev.map((mod, idx) => {
+        if (idx !== headingIndex) return mod;
+        return {
+          ...mod,
+          topics: mod.topics.filter((_, tIdx) => tIdx !== topicIndex),
+        };
+      })
+    );
+  };
+
+  const handleUpdateTopic = (headingIndex: number, topicIndex: number, value: string) => {
+    setModules((prev) =>
+      prev.map((mod, idx) => {
+        if (idx !== headingIndex) return mod;
+        return {
+          ...mod,
+          topics: mod.topics.map((top, tIdx) => (tIdx === topicIndex ? value : top)),
+        };
+      })
+    );
+  };
+
   const handleSubmit = () => {
     const title = (document.getElementById("s-title") as HTMLInputElement)?.value;
     const date = (document.getElementById("s-date") as HTMLInputElement)?.value;
     const time24 = (document.getElementById("s-time") as HTMLInputElement)?.value;
-    const time = formatTimeTo12Hour(time24); // Convert to 12-hour format with AM/PM
+    const time = formatTimeTo12Hour(time24);
     const duration = (document.getElementById("s-duration") as HTMLInputElement)?.value;
     const seats = parseInt(
       (document.getElementById("s-seats") as HTMLInputElement)?.value || "100",
       10,
     );
-    const priceVal = (document.getElementById("s-price") as HTMLInputElement)?.value;
     const meetLink = (document.getElementById("s-url") as HTMLInputElement)?.value;
     const summary = (document.getElementById("s-desc") as HTMLTextAreaElement)?.value;
+
+    const cleanedModules = modules
+      .filter((m) => m.heading.trim().length > 0)
+      .map((m, idx) => {
+        const cleanedTopics = m.topics.map((t) => t.trim()).filter((t) => t.length > 0);
+        return {
+          heading: m.heading.trim(),
+          title: m.heading.trim(),
+          description: m.description?.trim() || "",
+          order: idx,
+          topics: cleanedTopics,
+          subModules: cleanedTopics.map((topic, tIdx) => ({
+            title: topic,
+            description: "",
+            order: tIdx,
+          })),
+        };
+      });
 
     onSubmit({
       title: title || "System Design for Interviews",
@@ -473,19 +614,19 @@ function NewSessionScreen({
       time: time || "7:00 PM IST",
       duration: duration || "90 min",
       seats: seats || 100,
-      price: paid ? priceVal || "₹499" : "Free",
+      price: "Free",
       level,
       meetLink: meetLink || "https://meet.google.com/fdr-live",
       summary,
       thumbnail: thumb || undefined,
-      modules: modules.filter((m) => m.title.trim().length > 0),
+      modules: cleanedModules,
     });
 
     onClose();
     toast.success(editing ? "Session updated" : "Session scheduled", {
       description: editing
-        ? "Enrollees will see the updated details."
-        : "Modules saved and join link shared with enrollees.",
+        ? "Enrollees will see the updated headings and covered topics."
+        : "Headings, topics and Meet join link saved.",
     });
   };
 
@@ -494,8 +635,8 @@ function NewSessionScreen({
       title={editing ? `Edit · ${session!.title}` : "Create a live skill session"}
       description={
         editing
-          ? "Update the cover, modules, pricing or join link."
-          : "Add a thumbnail, modules, pricing and the live join link."
+          ? "Update the cover, headings, topics covered or join link."
+          : "Add a thumbnail, structured headings with covered topics, and the live join link."
       }
       submitLabel={uploadingImage ? "Uploading..." : (editing ? "Save changes" : "Schedule session")}
       onClose={onClose}
@@ -604,7 +745,7 @@ function NewSessionScreen({
         </div>
       </FormSection>
 
-      <FormSection title="Schedule & seats" hint="When it runs live and how many can join.">
+      <FormSection title="Schedule & capacity" hint="When it runs live and how many students can join.">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="s-date">Date</Label>
@@ -631,78 +772,128 @@ function NewSessionScreen({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="s-seats">Seats</Label>
-            <Input id="s-seats" type="number" placeholder="100" defaultValue={session?.seats} />
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="s-seats">Total Seats Capacity</Label>
+            <Input id="s-seats" type="number" placeholder="100" defaultValue={session?.seats || 100} />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="s-price">Price</Label>
-            <Input
-              id="s-price"
-              key={paid ? "paid" : "free"}
-              placeholder="₹499"
-              disabled={!paid}
-              defaultValue={
-                paid ? (session && session.price !== "Free" ? session.price : "") : "Free"
-              }
-            />
-          </div>
-        </div>
-        <div className="flex items-center justify-between rounded-lg border border-border p-3">
-          <div>
-            <p className="text-sm font-medium">{paid ? "Paid session" : "Free session"}</p>
-            <p className="text-xs text-muted-foreground">
-              {paid ? "Enrollees pay before getting the join link" : "Anyone can enroll at no cost"}
-            </p>
-          </div>
-          <Switch checked={paid} onCheckedChange={setPaid} aria-label="Paid session" />
         </div>
       </FormSection>
 
-      <FormSection title="Modules" hint="Break the session into segments, like a course.">
-        <div className="space-y-2">
-          {modules.map((m, i) => (
-            <div key={i} className="flex gap-2">
-              <Input
-                placeholder={`Module ${i + 1} title`}
-                value={m.title}
-                onChange={(e) =>
-                  setModules((prev) =>
-                    prev.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)),
-                  )
-                }
-              />
-              <Input
-                className="w-28 shrink-0"
-                placeholder="20 min"
-                value={m.duration}
-                onChange={(e) =>
-                  setModules((prev) =>
-                    prev.map((x, j) => (j === i ? { ...x, duration: e.target.value } : x)),
-                  )
-                }
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={`Remove module ${i + 1}`}
-                disabled={modules.length === 1}
-                onClick={() => setModules((prev) => prev.filter((_, j) => j !== i))}
-              >
-                <Trash2 className="size-4" />
-              </Button>
+      <FormSection
+        title="Curriculum: Headings & Covered Topics"
+        hint="Define each main heading and the specific topics that will be covered in that heading."
+      >
+        <div className="space-y-5">
+          {modules.map((m, hIdx) => (
+            <div
+              key={hIdx}
+              className="rounded-xl border border-border bg-card/60 p-4 transition-all duration-200 hover:border-primary/40 space-y-4 shadow-2xs"
+            >
+              {/* Heading Title & Controls */}
+              <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="grid size-6 place-items-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+                    {hIdx + 1}
+                  </span>
+                  <span className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                    Heading {hIdx + 1}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Remove heading ${hIdx + 1}`}
+                  disabled={modules.length === 1}
+                  onClick={() => handleRemoveHeading(hIdx)}
+                  className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="size-3.5 mr-1" /> Remove Heading
+                </Button>
+              </div>
+
+              {/* Heading Name Input */}
+              <div className="grid gap-2">
+                <Label className="text-xs font-medium text-muted-foreground">Heading Name</Label>
+                <Input
+                  placeholder="e.g. System Architecture & Scalability"
+                  value={m.heading}
+                  onChange={(e) => handleUpdateHeading(hIdx, "heading", e.target.value)}
+                  className="font-medium text-sm"
+                />
+                <Input
+                  placeholder="Heading overview or summary (optional)"
+                  value={m.description || ""}
+                  onChange={(e) => handleUpdateHeading(hIdx, "description", e.target.value)}
+                  className="text-xs text-muted-foreground bg-background/50"
+                />
+              </div>
+
+              {/* Covered Topics in this Heading */}
+              <div className="pl-3 border-l-2 border-primary/40 space-y-2.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Sparkles className="size-3.5 text-primary" />
+                    Topics covered in this heading:
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleAddTopic(hIdx)}
+                    className="h-6 text-[11px] text-primary hover:text-primary hover:bg-primary/10"
+                  >
+                    <Plus className="size-3 mr-1" /> Add topic
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  {m.topics.map((topic, tIdx) => (
+                    <div key={tIdx} className="flex items-center gap-2">
+                      <span className="size-1.5 rounded-full bg-primary shrink-0" />
+                      <Input
+                        placeholder={`Topic ${tIdx + 1} (e.g. Load Balancers & Caching)`}
+                        value={topic}
+                        onChange={(e) => handleUpdateTopic(hIdx, tIdx, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddTopic(hIdx);
+                          }
+                        }}
+                        className="h-8 text-xs font-medium bg-background/90"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        disabled={m.topics.length === 1 && tIdx === 0 && !topic}
+                        onClick={() => handleRemoveTopic(hIdx, tIdx)}
+                        className="size-8 text-muted-foreground hover:text-destructive shrink-0"
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-[11px] text-muted-foreground/80 italic">
+                  Tip: Press <kbd className="px-1 py-0.5 text-[10px] bg-secondary rounded border border-border">Enter</kbd> to quickly add another topic.
+                </p>
+              </div>
             </div>
           ))}
         </div>
-        <div>
+
+        <div className="mt-4">
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => setModules((m) => [...m, { title: "", duration: "" }])}
+            onClick={handleAddHeading}
+            className="gap-1.5"
           >
-            <Plus className="size-3.5" /> Add module
+            <Plus className="size-4" /> Add another heading
           </Button>
         </div>
       </FormSection>
@@ -799,25 +990,16 @@ function SessionsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    const targetSession = sessionsList.find((s) => s.id === id);
-    const confirmed = window.confirm(
-      `Are you sure you want to remove "${targetSession?.title || "this session"}"?`,
-    );
-    if (!confirmed) return;
-
-    await deleteSession(id);
-    setSessionsList((prev) => prev.filter((s) => s.id !== id));
-    if (openId === id) setOpenId(null);
-    if (editId === id) setEditId(null);
-    toast.success("Session removed", {
-      description: "The live skill session has been deleted.",
-    });
+    const success = await deleteSession(id);
+    if (success) {
+      setSessionsList((prev) => prev.filter((s) => s.id !== id));
+      if (openId === id) setOpenId(null);
+      if (editId === id) setEditId(null);
+    }
   };
 
-  // Filter sessions based on search query and level filter
   const filteredSessions = sessionsList.filter((s) => {
     const matchesSearch =
-      searchQuery.trim() === "" ||
       s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.host.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -828,78 +1010,90 @@ function SessionsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <>
       <PageHeader
-        eyebrow="Skills"
-        title="Live skill sessions"
-        description="Publish sessions like courses — they run live online on Google Meet, with seats and enrollments tracked here."
+        eyebrow="Live Sessions"
+        title="Live Skill Sessions"
+        description="Schedule live Meet sessions, build structured headings & covered topics, and track student enrollments."
         action={
-          <Button onClick={() => setComposing(true)}>
-            <Plus className="size-4" /> New live session
+          <Button onClick={() => setComposing(true)} className="gap-2 shadow-xs">
+            <Plus className="size-4" />
+            <span>Schedule session</span>
           </Button>
         }
       />
 
-      {/* Filter and Search Bar */}
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search sessions, topics or hosts…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+      <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search sessions by title, host or tags..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Filter by level:</span>
+            <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="All Levels" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Levels</SelectItem>
+                <SelectItem value="Beginner">Beginner</SelectItem>
+                <SelectItem value="Intermediate">Intermediate</SelectItem>
+                <SelectItem value="Advanced">Advanced</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          {["All", "Beginner", "Intermediate", "Advanced"].map((lvl) => (
-            <button
-              key={lvl}
-              type="button"
-              onClick={() => setSelectedLevel(lvl)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                selectedLevel === lvl
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
-              }`}
-            >
-              {lvl}
-            </button>
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <Loader2 className="size-8 animate-spin text-primary mb-3" />
+            <p className="text-sm">Loading your live sessions...</p>
+          </div>
+        ) : filteredSessions.length === 0 ? (
+          <div className="panel text-center py-16 px-4">
+            <Layers className="size-12 mx-auto text-muted-foreground mb-4 opacity-40" />
+            <h3 className="text-lg font-semibold">No live sessions found</h3>
+            <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+              {searchQuery || selectedLevel !== "All"
+                ? "Try adjusting your search query or filters to find what you are looking for."
+                : "Schedule your first live skill session with structured headings, covered topics, and Meet integration."}
+            </p>
+            {!searchQuery && selectedLevel === "All" && (
+              <Button onClick={() => setComposing(true)} className="mt-6 gap-2">
+                <Plus className="size-4" />
+                <span>Schedule a session</span>
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredSessions.map((session) => (
+              <SessionCard
+                key={session.id}
+                s={session}
+                onOpen={() => setOpenId(session.id)}
+                onEdit={() => setEditId(session.id)}
+                onDelete={() => handleDelete(session.id)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Grid of Sessions */}
-      {filteredSessions.length === 0 ? (
-        <div className="panel p-12 text-center">
-          <p className="font-semibold">No live sessions found</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {searchQuery || selectedLevel !== "All"
-              ? "Try adjusting your search terms or filters."
-              : "Create your first live skill session to get started."}
-          </p>
-          <Button className="mt-4" onClick={() => setComposing(true)}>
-            <Plus className="size-4" /> Schedule session
-          </Button>
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filteredSessions.map((s) => (
-            <SessionCard
-              key={s.id}
-              s={s}
-              onOpen={() => setOpenId(s.id)}
-              onEdit={() => setEditId(s.id)}
-              onDelete={() => handleDelete(s.id)}
-            />
-          ))}
-        </div>
+      {composing && (
+        <NewSessionScreen
+          onClose={() => setComposing(false)}
+          onSubmit={handleCreate}
+        />
       )}
 
-      {composing && (
-        <NewSessionScreen onClose={() => setComposing(false)} onSubmit={handleCreate} />
-      )}
       {editing && (
         <NewSessionScreen
           session={editing}
@@ -908,15 +1102,19 @@ function SessionsPage() {
           onDelete={() => handleDelete(editing.id)}
         />
       )}
+
       {active && (
         <FullScreenSession
           s={active}
           onClose={() => setOpenId(null)}
-          onEdit={() => setEditId(active.id)}
+          onEdit={() => {
+            const id = active.id;
+            setOpenId(null);
+            setEditId(id);
+          }}
           onDelete={() => handleDelete(active.id)}
         />
       )}
-    </div>
+    </>
   );
 }
-

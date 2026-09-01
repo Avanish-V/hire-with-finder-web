@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { MapPin, Users, Plus, MoreHorizontal, IndianRupee, X, Trash2, Edit, AlertCircle } from "lucide-react";
+import { MapPin, Users, Plus, MoreHorizontal, IndianRupee, X, Trash2, Edit, AlertCircle, Calendar, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
 import { FullScreenComposer, FormSection } from "@/components/FullScreenComposer";
@@ -107,6 +107,16 @@ function JobCard({
         <span className="flex items-center gap-1.5">
           <Users className="size-3.5" /> {job.applicants} applicants
         </span>
+        {job.durationMonths && (
+          <span className="flex items-center gap-1.5">
+            <Clock className="size-3.5" /> {job.durationMonths} month{job.durationMonths !== 1 ? 's' : ''}
+          </span>
+        )}
+        {job.deadline && (
+          <span className="flex items-center gap-1.5">
+            <Calendar className="size-3.5" /> Deadline: {new Date(job.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </span>
+        )}
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -220,15 +230,53 @@ function PostJobScreen({
   const editing = Boolean(job);
   const [selectedType, setSelectedType] = useState<Job["type"]>(job?.type ?? "Internship");
   const [posterType, setPosterType] = useState<"USER_PROFILE" | "COMPANY_PROFILE">("USER_PROFILE");
+  const [hasCompanyProfile, setHasCompanyProfile] = useState<boolean | null>(null);
+  const [checkingCompany, setCheckingCompany] = useState(false);
 
-  const handleSubmit = () => {
+  // Check if user has a company profile when component mounts
+  useEffect(() => {
+    const checkCompanyProfile = async () => {
+      setCheckingCompany(true);
+      try {
+        const token = getAuthToken();
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8081'}/api/company/profile`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          },
+        });
+
+        setHasCompanyProfile(response.ok);
+      } catch (error) {
+        console.error("Error checking company profile:", error);
+        setHasCompanyProfile(false);
+      } finally {
+        setCheckingCompany(false);
+      }
+    };
+
+    checkCompanyProfile();
+  }, []);
+
+  const handleSubmit = async () => {
     const title = (document.getElementById("job-title") as HTMLInputElement)?.value;
     const location = (document.getElementById("job-location") as HTMLInputElement)?.value;
     const stipend = (document.getElementById("job-pay") as HTMLInputElement)?.value;
     const skillsRaw = (document.getElementById("job-skills") as HTMLInputElement)?.value;
     const desc = (document.getElementById("job-desc") as HTMLTextAreaElement)?.value;
+    const deadline = (document.getElementById("job-deadline") as HTMLInputElement)?.value;
+    const durationMonths = (document.getElementById("job-duration") as HTMLInputElement)?.value;
 
     const skills = skillsRaw ? skillsRaw.split(",").map((s) => s.trim()) : ["React"];
+
+    // Validate company profile exists if posting as company
+    if (posterType === "COMPANY_PROFILE" && hasCompanyProfile === false) {
+      toast.error("Company profile required", {
+        description: "Please create a company profile before posting jobs on behalf of a company, or select 'Your Profile' instead.",
+      });
+      return;
+    }
 
     onSubmit({
       title: title || "Frontend Engineering Intern",
@@ -239,6 +287,8 @@ function PostJobScreen({
       status: "Open",
       description: desc,
       posterType, // Add posterType to the submission
+      deadline: deadline || undefined,
+      durationMonths: durationMonths ? parseInt(durationMonths, 10) : undefined,
     } as any);
 
     onClose();
@@ -312,6 +362,17 @@ function PostJobScreen({
               <p className="text-sm text-muted-foreground">
                 Post on behalf of your company. Candidates will see your company name and logo.
               </p>
+              {!checkingCompany && hasCompanyProfile === false && (
+                <div className="mt-2 flex items-start gap-2 rounded-md bg-warning/10 border border-warning/30 p-2">
+                  <AlertCircle className="size-4 text-warning shrink-0 mt-0.5" />
+                  <div className="flex-1 text-xs">
+                    <p className="font-medium text-warning">No company profile found</p>
+                    <p className="text-muted-foreground mt-0.5">
+                      You need to create a company profile first. Go to Profile &gt; Company.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -352,6 +413,30 @@ function PostJobScreen({
           <div className="grid gap-2">
             <Label htmlFor="job-pay">Stipend / salary</Label>
             <Input id="job-pay" placeholder="₹25,000 / mo" defaultValue={job?.stipend} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="job-duration">Duration (months)</Label>
+            <Input 
+              id="job-duration" 
+              type="number" 
+              placeholder="e.g., 3, 6, 12" 
+              defaultValue={job?.durationMonths}
+              min="1"
+            />
+            <p className="text-xs text-muted-foreground">
+              How long this role will last (optional)
+            </p>
+          </div>
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="job-deadline">Application deadline</Label>
+            <Input 
+              id="job-deadline" 
+              type="date" 
+              defaultValue={job?.deadline}
+            />
+            <p className="text-xs text-muted-foreground">
+              Last date to accept applications (optional)
+            </p>
           </div>
         </div>
       </FormSection>

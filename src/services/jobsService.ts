@@ -24,6 +24,8 @@ interface BackendJobPayload {
   status?: Job["status"];
   description?: string;
   recruiterUid?: string;
+  deadline?: string; // ISO-8601 date string
+  durationMonths?: number; // Duration in months
   [key: string]: unknown;
 }
 
@@ -57,6 +59,8 @@ function mapBackendJob(raw: BackendJobPayload): Job {
     skills: skillsArray,
     status: raw.status || "Open",
     description: raw.description || "",
+    deadline: raw.deadline || undefined,
+    durationMonths: raw.durationMonths || undefined,
   };
 }
 

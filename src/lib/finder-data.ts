@@ -26,6 +26,8 @@ export type Job = {
   skills: string[];
   status: JobStatus;
   description?: string;
+  deadline?: string; // ISO-8601 date string (e.g., "2026-12-31")
+  durationMonths?: number; // Duration in months
 };
 
 export const jobs: Job[] = [];
@@ -39,7 +41,7 @@ export type LiveSession = {
   duration: string;
   seats: number;
   enrolled: number;
-  price: string;
+  price?: string;
   level: "Beginner" | "Intermediate" | "Advanced";
   status: "Live now" | "Scheduled" | "Completed";
   meetLink: string;
@@ -49,10 +51,22 @@ export type LiveSession = {
   modules?: SessionModule[];
 };
 
-export type SessionModule = {
+export type SessionSubModule = {
+  id?: string;
   title: string;
-  duration: string;
+  description?: string;
+  order?: number;
+};
+
+export type SessionModule = {
+  id?: string;
+  heading?: string;
+  title: string;
+  topics?: string[];
   detail?: string;
+  description?: string;
+  order?: number;
+  subModules?: SessionSubModule[];
 };
 
 export const defaultModules: SessionModule[] = [];
@@ -93,9 +107,16 @@ export type CandidateEducation = {
   cgpa: string;
 };
 
-export type CandidateSkill = { name: string; level: "Beginner" | "Intermediate" | "Advanced" };
+export type CandidateSkill = {
+  name: string;
+  level: "Beginner" | "Intermediate" | "Advanced";
+  category?: string;
+};
 
 export type CandidateProfile = {
+  uid?: string;
+  name?: string;
+  email?: string;
   tagline: string;
   summary: string;
   phone: string;
@@ -106,7 +127,7 @@ export type CandidateProfile = {
   avatarUrl?: string;
   auraPoints: number;
   auraLevel?: string;
-  education: CandidateEducation;
+  education?: CandidateEducation | null;
   skills: CandidateSkill[];
   experience: { role: string; org: string; period: string }[];
 };

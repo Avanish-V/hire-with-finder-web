@@ -320,9 +320,7 @@ export async function updateProfile(updates: Partial<UserProfile>): Promise<User
         size: updates.companyProfile.size,
         address: updates.companyProfile.address,
         city: updates.companyProfile.city,
-        state: updates.companyProfile.state,
         country: updates.companyProfile.country,
-        postalCode: updates.companyProfile.postalCode,
         about: updates.companyProfile.about,
         socialLinks: updates.companyProfile.socialLinks,
       };

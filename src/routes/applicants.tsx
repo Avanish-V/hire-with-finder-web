@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Search, Download, Mail, Check, X } from "lucide-react";
+import { Search, Download, Mail, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -24,8 +24,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { stageTone, type Applicant } from "@/lib/finder-data";
+import { getApplicants } from "@/services/applicantsService";
 import { CandidateProfileScreen } from "@/components/CandidateProfile";
-import { getApplicants, updateApplicantStage } from "@/services/applicantsService";
 
 export const Route = createFileRoute("/applicants")({
   head: () => ({
@@ -53,7 +53,7 @@ function ApplicantsPage() {
   const [kind, setKind] = useState<"all" | "Job" | "Session">("all");
   const [stage, setStage] = useState<string>("all");
   const [query, setQuery] = useState("");
-  const [profile, setProfile] = useState<Applicant | null>(null);
+  const [selectedApplicant, setSelectedApplicant] = useState<Applicant | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -67,19 +67,6 @@ function ApplicantsPage() {
     };
   }, []);
 
-  const handleStageChange = async (applicant: Applicant, newStage: Applicant["stage"]) => {
-    await updateApplicantStage(applicant.id, newStage);
-    setApplicantsList((prev) =>
-      prev.map((a) => (a.id === applicant.id ? { ...a, stage: newStage } : a)),
-    );
-    if (newStage === "Shortlisted") {
-      toast.success(`${applicant.name} shortlisted`);
-    } else if (newStage === "Rejected") {
-      toast(`${applicant.name} moved to rejected`);
-    } else {
-      toast.success(`Moved ${applicant.name} to ${newStage}`);
-    }
-  };
 
   const rows = useMemo(
     () =>
@@ -170,7 +157,7 @@ function ApplicantsPage() {
                     <button
                       type="button"
                       className="flex items-center gap-3 text-left"
-                      onClick={() => setProfile(a)}
+                      onClick={() => setSelectedApplicant(a)}
                     >
                       <Avatar className="size-9 border border-border">
                         <AvatarFallback className="bg-secondary text-xs">
@@ -198,7 +185,12 @@ function ApplicantsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      <Button variant="outline" size="sm" onClick={() => setProfile(a)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedApplicant(a)}
+                      >
+                        <ExternalLink className="size-3.5 mr-1" />
                         View profile
                       </Button>
                       <Button
@@ -208,22 +200,6 @@ function ApplicantsPage() {
                         onClick={() => toast.success(`Email drafted to ${a.email}`)}
                       >
                         <Mail className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Shortlist ${a.name}`}
-                        onClick={() => handleStageChange(a, "Shortlisted")}
-                      >
-                        <Check className="size-4 text-success" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Reject ${a.name}`}
-                        onClick={() => handleStageChange(a, "Rejected")}
-                      >
-                        <X className="size-4 text-destructive" />
                       </Button>
                     </div>
                   </TableCell>
@@ -244,7 +220,12 @@ function ApplicantsPage() {
         </div>
       </div>
 
-      {profile && <CandidateProfileScreen applicant={profile} onClose={() => setProfile(null)} onStageChange={handleStageChange} />}
+      {selectedApplicant && (
+        <CandidateProfileScreen
+          applicant={selectedApplicant}
+          onClose={() => setSelectedApplicant(null)}
+        />
+      )}
     </div>
   );
 }
