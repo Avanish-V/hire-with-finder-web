@@ -185,15 +185,24 @@ function SessionCard({
           >
             {s.status === "Live now" ? "Join Meet" : "Open session"}
           </Button>
-          <Button variant="ghost" size="icon" aria-label="Edit session" onClick={onEdit}>
-            <Pencil className="size-4" />
-          </Button>
-          <Button variant="ghost" size="icon" aria-label="Delete session" onClick={onDelete}>
-            <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
-          </Button>
-          <Button variant="ghost" size="icon" aria-label="Open full screen" onClick={onOpen}>
-            <Maximize2 className="size-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Session actions">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onEdit} className="gap-2">
+                <Pencil className="size-3.5" /> Edit session
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={onDelete}
+                className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
+              >
+                <Trash2 className="size-3.5" /> Delete session
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </article>
