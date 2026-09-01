@@ -7,7 +7,7 @@ import {
   Users,
   Video,
   Copy,
-  Maximize2,
+  MoreHorizontal,
   X,
   ImagePlus,
   Trash2,
