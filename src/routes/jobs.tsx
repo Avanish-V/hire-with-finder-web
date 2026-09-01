@@ -6,6 +6,12 @@ import { PageHeader } from "@/components/AppShell";
 import { FullScreenComposer, FormSection } from "@/components/FullScreenComposer";
 import { PeopleList, peopleFor } from "@/components/PeopleList";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
