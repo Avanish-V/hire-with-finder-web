@@ -277,7 +277,7 @@ function FullScreenSession({
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 md:px-8 lg:grid-cols-[1.6fr_1fr]">
+      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:px-8 lg:grid-cols-[1.6fr_1fr]">
         <div>
           <div className="panel overflow-hidden">
             <div className="relative">
@@ -1038,7 +1038,7 @@ function SessionsPage() {
         }
       />
 
-      <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
+      <div className="space-y-6">
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -1088,7 +1088,7 @@ function SessionsPage() {
             )}
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredSessions.map((session) => (
               <SessionCard
                 key={session.id}
