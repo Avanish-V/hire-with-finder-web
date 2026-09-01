@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Briefcase, Radio, Users, Search, Bell, LogOut } from "lucide-react";
+import { Briefcase, Radio, Search, Bell, LogOut } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/authContext";
 
 const nav = [
-  { to: "/", label: "Overview", icon: LayoutDashboard },
-  { to: "/jobs", label: "Jobs & Internships", icon: Briefcase },
-  { to: "/sessions", label: "Live Skill Sessions", icon: Radio },
-  { to: "/applicants", label: "Applicants", icon: Users },
+  { to: "/jobs", label: "Internships & Jobs", icon: Briefcase },
+  { to: "/sessions", label: "Live Sessions", icon: Radio },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -25,14 +23,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated, loading, pathname, navigate]);
 
-  // After Google redirect sign-in succeeds, redirect away from /auth to dashboard
   useEffect(() => {
     if (!loading && isAuthenticated && pathname.startsWith("/auth")) {
       void navigate({ to: "/" });
     }
   }, [isAuthenticated, loading, pathname, navigate]);
 
-  // Auth is a standalone full-page experience without app chrome.
   if (pathname.startsWith("/auth")) return <>{children}</>;
 
   const initials = user?.name
@@ -47,17 +43,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen lg:flex">
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-4 py-6 lg:sticky lg:top-0 lg:flex lg:h-screen">
-        <Link to="/" className="mb-8 flex items-center gap-2 px-2">
-          <span className="grid size-9 place-items-center rounded-xl bg-primary font-display text-lg font-bold text-primary-foreground">
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 py-5 lg:sticky lg:top-0 lg:flex lg:h-screen">
+        <Link to="/" className="mb-6 flex items-center gap-2.5 px-2">
+          <span className="grid size-8 place-items-center rounded-lg bg-primary font-display text-base font-bold text-primary-foreground">
             F
           </span>
-          <span className="font-display text-xl font-semibold tracking-tight">Finder</span>
+          <span className="font-display text-lg font-semibold tracking-tight">Finder</span>
         </Link>
 
         <nav className="flex flex-1 flex-col gap-1">
           {nav.map((item) => {
-            const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+            const active = pathname.startsWith(item.to);
             return (
               <Link
                 key={item.to}
@@ -75,27 +71,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-
-        <div className="mt-auto border-t border-sidebar-border pt-4">
-          <div className="flex items-center justify-between px-2">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium">{user?.name || "Recruiter"}</p>
-              <p className="truncate text-[11px] text-muted-foreground">{user?.email || "recruiter@finder.app"}</p>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={async () => {
-                await signOut();
-                void navigate({ to: "/auth" });
-              }}
-              title="Sign out"
-              className="size-8 text-muted-foreground hover:text-destructive"
-            >
-              <LogOut className="size-4" />
-            </Button>
-          </div>
-        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -105,7 +80,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               F
             </span>
           </Link>
-          <div className="relative hidden max-w-sm flex-1 sm:block">
+          <div className="relative hidden max-w-md flex-1 sm:block">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search roles, sessions, candidates"
@@ -116,6 +91,18 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-2">
             <Button variant="ghost" size="icon" aria-label="Notifications">
               <Bell className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Sign out"
+              onClick={async () => {
+                await signOut();
+                void navigate({ to: "/auth" });
+              }}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <LogOut className="size-4" />
             </Button>
             <Link to="/profile" aria-label="Profile">
               <Avatar className="size-9 border border-border transition-opacity hover:opacity-80">
@@ -129,7 +116,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <nav className="sticky bottom-0 z-20 flex border-t border-border bg-background/95 backdrop-blur lg:hidden">
           {nav.map((item) => {
-            const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+            const active = pathname.startsWith(item.to);
             return (
               <Link
                 key={item.to}

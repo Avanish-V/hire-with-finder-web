@@ -30,7 +30,7 @@ export function FullScreenComposer({
         }}
       >
         <div className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
-          <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3 md:px-8">
+          <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 md:px-8">
             <Button variant="ghost" size="icon" type="button" aria-label="Close" onClick={onClose}>
               <X className="size-4" />
             </Button>
@@ -61,7 +61,7 @@ export function FullScreenComposer({
           </div>
         </div>
 
-        <div className="mx-auto max-w-4xl px-4 py-8 md:px-8">{children}</div>
+        <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">{children}</div>
       </form>
     </div>
   );
