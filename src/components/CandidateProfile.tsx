@@ -95,7 +95,7 @@ export function CandidateProfileScreen({
     <div className="fixed inset-0 z-[60] overflow-y-auto bg-background/95 backdrop-blur-sm animate-in fade-in duration-200">
       {/* Sticky top bar */}
       <div className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 md:px-8">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 md:px-8">
           <Button variant="ghost" size="icon" aria-label="Close profile" onClick={onClose}>
             <X className="size-4" />
           </Button>
@@ -147,7 +147,7 @@ export function CandidateProfileScreen({
       </div>
 
       {/* Main Content Layout */}
-      <div className="mx-auto grid max-w-5xl gap-6 px-4 py-6 md:px-8 lg:grid-cols-[1.75fr_1fr]">
+      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:px-8 lg:grid-cols-[1.75fr_1fr]">
         <div className="space-y-6">
           {/* Hero Profile Card */}
           <section className="panel p-6">

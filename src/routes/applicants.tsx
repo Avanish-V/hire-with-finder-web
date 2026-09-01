@@ -81,7 +81,7 @@ function ApplicantsPage() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       <PageHeader
         eyebrow="Pipeline"
         title="Applicants & enrollments"
