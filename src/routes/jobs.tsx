@@ -6,6 +6,12 @@ import { PageHeader } from "@/components/AppShell";
 import { FullScreenComposer, FormSection } from "@/components/FullScreenComposer";
 import { PeopleList, peopleFor } from "@/components/PeopleList";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,28 +79,29 @@ function JobCard({
           <h3 className="mt-2 text-lg font-semibold">{job.title}</h3>
           <p className="text-sm text-muted-foreground">{job.company}</p>
         </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Edit role"
-            title="Edit role"
-            onClick={onEdit}
-            className="size-8 text-muted-foreground hover:text-foreground"
-          >
-            <Edit className="size-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Delete role"
-            title="Delete role"
-            onClick={onDelete}
-            className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Role actions"
+              className="size-8 text-muted-foreground"
+            >
+              <MoreHorizontal className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={onEdit} className="gap-2">
+              <Edit className="size-3.5" /> Edit role
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={onDelete}
+              className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
+            >
+              <Trash2 className="size-3.5" /> Delete role
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
@@ -128,19 +135,8 @@ function JobCard({
       </div>
 
       <div className="mt-5 flex gap-2">
-        <Button variant="outline" size="sm" className="flex-1" onClick={onViewApplicants}>
+        <Button size="sm" className="flex-1" onClick={onViewApplicants}>
           View applicants
-        </Button>
-        <Button variant="ghost" size="sm" onClick={onEdit}>
-          Edit
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-        >
-          Delete
         </Button>
       </div>
     </article>
@@ -171,7 +167,7 @@ function JobApplicantsScreen({ job, onClose }: { job: Job; onClose: () => void }
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
       <div className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 md:px-8">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 md:px-8">
           <Button variant="ghost" size="icon" aria-label="Close applicants" onClick={onClose}>
             <X className="size-4" />
           </Button>
@@ -184,7 +180,7 @@ function JobApplicantsScreen({ job, onClose }: { job: Job; onClose: () => void }
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl px-4 py-6 md:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 md:px-8">
         <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
           {stages.map((s) => (
             <div key={s} className="panel p-4">
@@ -589,7 +585,7 @@ function JobsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       <PageHeader
         eyebrow="Recruitment"
         title="Jobs & internships"
@@ -649,7 +645,7 @@ function JobsPage() {
                   </Button>
                 </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {groups[key].map((job) => (
                     <JobCard
                       key={job.id}

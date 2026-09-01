@@ -76,7 +76,7 @@ function Overview() {
   const displayName = user?.name ? user.name.split(" ")[0] : "Recruiter";
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       <PageHeader
         eyebrow="Workspace"
         title={`Good evening, ${displayName}`}

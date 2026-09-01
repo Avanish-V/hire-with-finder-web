@@ -241,7 +241,7 @@ function ProfilePage() {
       .toUpperCase() || "AK";
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="w-full">
       <PageHeader
         eyebrow="Account"
         title="Your profile"

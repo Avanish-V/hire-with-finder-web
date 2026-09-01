@@ -7,7 +7,7 @@ import {
   Users,
   Video,
   Copy,
-  Maximize2,
+  MoreHorizontal,
   X,
   ImagePlus,
   Trash2,
@@ -24,6 +24,12 @@ import {
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -179,15 +185,24 @@ function SessionCard({
           >
             {s.status === "Live now" ? "Join Meet" : "Open session"}
           </Button>
-          <Button variant="ghost" size="icon" aria-label="Edit session" onClick={onEdit}>
-            <Pencil className="size-4" />
-          </Button>
-          <Button variant="ghost" size="icon" aria-label="Delete session" onClick={onDelete}>
-            <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
-          </Button>
-          <Button variant="ghost" size="icon" aria-label="Open full screen" onClick={onOpen}>
-            <Maximize2 className="size-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Session actions">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onEdit} className="gap-2">
+                <Pencil className="size-3.5" /> Edit session
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={onDelete}
+                className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
+              >
+                <Trash2 className="size-3.5" /> Delete session
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </article>
@@ -262,7 +277,7 @@ function FullScreenSession({
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 md:px-8 lg:grid-cols-[1.6fr_1fr]">
+      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:px-8 lg:grid-cols-[1.6fr_1fr]">
         <div>
           <div className="panel overflow-hidden">
             <div className="relative">
@@ -1023,7 +1038,7 @@ function SessionsPage() {
         }
       />
 
-      <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
+      <div className="space-y-6">
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -1073,7 +1088,7 @@ function SessionsPage() {
             )}
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredSessions.map((session) => (
               <SessionCard
                 key={session.id}
