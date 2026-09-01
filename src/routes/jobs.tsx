@@ -135,19 +135,8 @@ function JobCard({
       </div>
 
       <div className="mt-5 flex gap-2">
-        <Button variant="outline" size="sm" className="flex-1" onClick={onViewApplicants}>
+        <Button size="sm" className="flex-1" onClick={onViewApplicants}>
           View applicants
-        </Button>
-        <Button variant="ghost" size="sm" onClick={onEdit}>
-          Edit
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-        >
-          Delete
         </Button>
       </div>
     </article>
