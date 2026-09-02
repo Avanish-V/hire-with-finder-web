@@ -291,7 +291,13 @@ export async function getSessionDetails(
             match: s.progress || 100,
             stage: (s.status as Applicant["stage"]) || "Shortlisted",
             email: s.email || "student@example.com",
-            externalUserId: s.user_id || s.userId || s.externalUserId || s.oauth_provider_id || s.id || null,
+            externalUserId:
+              (s.user_id as string | undefined) ||
+              ((s as Record<string, unknown>).userId as string | undefined) ||
+              ((s as Record<string, unknown>).externalUserId as string | undefined) ||
+              (s.oauth_provider_id as string | undefined) ||
+              (s.id as string | undefined) ||
+              null,
           };
         });
       }
