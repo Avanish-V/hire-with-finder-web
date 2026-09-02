@@ -18,6 +18,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const { user, isAuthenticated, loading, signOut } = useAuth();
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("finder:sidebar-collapsed");
+    if (stored === "1") setCollapsed(true);
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      localStorage.setItem("finder:sidebar-collapsed", prev ? "0" : "1");
+      return !prev;
+    });
+  };
 
   useEffect(() => {
     if (!loading && !isAuthenticated && !pathname.startsWith("/auth")) {
@@ -44,36 +57,101 @@ export function AppShell({ children }: { children: ReactNode }) {
     : "RC";
 
   return (
+    <TooltipProvider delayDuration={120}>
     <div className="min-h-screen lg:flex">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 py-5 lg:sticky lg:top-0 lg:flex lg:h-screen">
-        <Link to="/" className="mb-6 flex items-center gap-2.5 px-2">
-          <span className="grid size-8 place-items-center rounded-lg bg-primary font-display text-base font-bold text-primary-foreground">
-            F
-          </span>
-          <span className="font-display text-lg font-semibold tracking-tight">Finder</span>
-        </Link>
+      <aside
+        className={cn(
+          "hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 lg:sticky lg:top-0 lg:flex lg:h-screen",
+          collapsed ? "w-[4.5rem]" : "w-64",
+        )}
+      >
+        <div
+          className={cn(
+            "flex h-16 items-center border-b border-sidebar-border/70",
+            collapsed ? "justify-center px-2" : "gap-2.5 px-4",
+          )}
+        >
+          <Link to="/" className="flex min-w-0 items-center gap-2.5" aria-label="Finder home">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary font-display text-base font-bold text-primary-foreground shadow-glow">
+              F
+            </span>
+            {!collapsed && (
+              <span className="truncate font-display text-lg font-semibold tracking-tight">
+                finder<span className="text-primary">.</span>
+              </span>
+            )}
+          </Link>
+        </div>
 
-        <nav className="flex flex-1 flex-col gap-1">
+        <nav className="flex flex-1 flex-col gap-1.5 p-3">
+          {!collapsed && <p className="text-eyebrow px-2 pb-1.5">Workspace</p>}
           {nav.map((item) => {
             const active = pathname.startsWith(item.to);
-            return (
+            const link = (
               <Link
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  "group relative flex items-center rounded-xl text-sm font-medium transition-all",
+                  collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5",
                   active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-panel"
+                    : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
                 )}
               >
-                <item.icon className={cn("size-4", active && "text-primary")} />
-                {item.label}
+                <span
+                  className={cn(
+                    "absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary transition-opacity",
+                    active ? "opacity-100" : "opacity-0",
+                  )}
+                />
+                <span
+                  className={cn(
+                    "grid size-8 shrink-0 place-items-center rounded-lg transition-colors",
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-sidebar-accent/50 text-muted-foreground group-hover:text-sidebar-accent-foreground",
+                  )}
+                >
+                  <item.icon className="size-4" />
+                </span>
+                {!collapsed && <span className="truncate">{item.label}</span>}
               </Link>
+            );
+
+            return collapsed ? (
+              <Tooltip key={item.to}>
+                <TooltipTrigger asChild>{link}</TooltipTrigger>
+                <TooltipContent side="right">{item.label}</TooltipContent>
+              </Tooltip>
+            ) : (
+              link
             );
           })}
         </nav>
+
+        <div className="border-t border-sidebar-border/70 p-3">
+          <Button
+            variant="ghost"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className={cn(
+              "w-full text-muted-foreground hover:text-foreground",
+              collapsed ? "justify-center px-0" : "justify-start gap-2",
+            )}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="size-4" />
+            ) : (
+              <>
+                <PanelLeftClose className="size-4" />
+                <span className="text-sm">Collapse</span>
+              </>
+            )}
+          </Button>
+        </div>
       </aside>
+
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/85 px-4 py-3 backdrop-blur md:px-8">
