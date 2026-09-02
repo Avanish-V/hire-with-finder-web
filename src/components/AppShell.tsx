@@ -1,16 +1,18 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Briefcase, Radio, Search, Bell, LogOut } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { Briefcase, Radio, Search, Bell, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/authContext";
 
 const nav = [
-  { to: "/jobs", label: "Internships & Jobs", icon: Briefcase },
-  { to: "/sessions", label: "Live Sessions", icon: Radio },
+  { to: "/jobs", label: "Internships & Jobs", short: "Jobs", icon: Briefcase },
+  { to: "/sessions", label: "Live Sessions", short: "Sessions", icon: Radio },
 ] as const;
+
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
