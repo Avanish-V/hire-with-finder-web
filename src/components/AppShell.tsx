@@ -207,14 +207,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
               >
                 <item.icon className="size-4" />
-                {item.label.split(" ")[0]}
+                {item.short}
               </Link>
             );
           })}
         </nav>
       </div>
     </div>
+    </TooltipProvider>
   );
+
 }
 
 export function PageHeader({
