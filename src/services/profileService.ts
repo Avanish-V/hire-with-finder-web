@@ -91,36 +91,36 @@ export interface UpdateCombinedProfileRequest {
 // ============================================================================
 
 export const emptyCompanyProfile: CompanyProfile = {
-  name: "Finder Internal",
+  name: "",
   logoUrl: "",
-  website: "https://finder.app",
-  industry: "Technology",
-  size: "51-200",
-  address: "4th Floor, Prestige Tech Park, Kadubeesanahalli",
-  city: "Bengaluru",
-  country: "India",
-  about: "We help students and early-career engineers find internships, jobs and live upskilling sessions.",
+  website: "",
+  industry: "",
+  size: "",
+  address: "",
+  city: "",
+  country: "",
+  about: "",
 };
 
 let inMemoryProfile: UserProfile = {
   avatarUrl: "",
   companyProfile: { ...emptyCompanyProfile },
-  name: "Aditya Kulkarni",
-  email: "aditya@finder.app",
-  phone: "+91 98200 11223",
+  name: "",
+  email: "",
+  phone: "",
   role: "recruiter",
-  company: "Finder Internal",
-  location: "Bengaluru, India",
-  bio: "Hiring for engineering and design across internships and full-time roles. I also run weekly live sessions on interview prep.",
-  skills: ["Hiring", "React", "Node.js", "Interviewing"],
+  company: "",
+  location: "",
+  bio: "",
+  skills: [],
   notifications: {
     applicantAlerts: true,
     sessionEnrollments: true,
     weeklyDigest: false,
   },
-  postsCount: 8,
-  sessionsCount: 12,
-  applicantsCount: 426,
+  postsCount: 0,
+  sessionsCount: 0,
+  applicantsCount: 0,
 };
 
 // ============================================================================
