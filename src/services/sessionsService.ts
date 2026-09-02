@@ -291,7 +291,7 @@ export async function getSessionDetails(
             match: s.progress || 100,
             stage: (s.status as Applicant["stage"]) || "Shortlisted",
             email: s.email || "student@example.com",
-            externalUserId: s.user_id || s.userId || s.externalUserId || s.oauth_provider_id || s.id || null,
+            externalUserId: s.user_id || (s as Record<string, unknown>).userId || (s as Record<string, unknown>).externalUserId || s.oauth_provider_id || s.id || null,
           };
         });
       }
