@@ -6,18 +6,7 @@ export interface SkillItem {
   category: string;
 }
 
-let inMemorySkills: SkillItem[] = [
-  { id: 1, name: "Kotlin", category: "Engineering" },
-  { id: 2, name: "Java", category: "Engineering" },
-  { id: 3, name: "Spring Boot", category: "Engineering" },
-  { id: 4, name: "React", category: "Engineering" },
-  { id: 5, name: "TypeScript", category: "Engineering" },
-  { id: 6, name: "Node.js", category: "Engineering" },
-  { id: 7, name: "PostgreSQL", category: "Engineering" },
-  { id: 8, name: "Docker", category: "DevOps" },
-  { id: 9, name: "AWS", category: "DevOps" },
-  { id: 10, name: "Figma", category: "Design" },
-];
+let inMemorySkills: SkillItem[] = [];
 
 /**
  * Fetch all skills or search by query
