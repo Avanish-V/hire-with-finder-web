@@ -50,6 +50,7 @@ const stages: Applicant["stage"][] = ["New", "Shortlisted", "Interview", "Hired"
 
 function ApplicantsPage() {
   const [applicantsList, setApplicantsList] = useState<Applicant[]>([]);
+  const [loading, setLoading] = useState(true);
   const [kind, setKind] = useState<"all" | "Job" | "Session">("all");
   const [stage, setStage] = useState<string>("all");
   const [query, setQuery] = useState("");
@@ -60,7 +61,10 @@ function ApplicantsPage() {
     getApplicants().then((data) => {
       if (isMounted) {
         setApplicantsList(data);
+        setLoading(false);
       }
+    }).catch(() => {
+      if (isMounted) setLoading(false);
     });
     return () => {
       isMounted = false;
@@ -97,9 +101,13 @@ function ApplicantsPage() {
         {stages.map((s) => (
           <div key={s} className="panel p-4">
             <p className="text-eyebrow">{s}</p>
-            <p className="mt-2 font-display text-2xl font-semibold">
-              {applicantsList.filter((a) => a.stage === s).length}
-            </p>
+            {loading ? (
+              <Skeleton className="mt-2 h-8 w-12" />
+            ) : (
+              <p className="mt-2 font-display text-2xl font-semibold">
+                {applicantsList.filter((a) => a.stage === s).length}
+              </p>
+            )}
           </div>
         ))}
       </div>
@@ -151,7 +159,17 @@ function ApplicantsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((a) => (
+              {loading &&
+                [0, 1, 2, 3, 4].map((i) => (
+                  <TableRow key={`sk-${i}`}>
+                    {Array.from({ length: 7 }).map((_, c) => (
+                      <TableCell key={c}>
+                        <Skeleton className="h-4 w-full" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              {!loading && rows.map((a) => (
                 <TableRow key={a.id}>
                   <TableCell>
                     <button
@@ -205,7 +223,7 @@ function ApplicantsPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {rows.length === 0 && (
+              {!loading && rows.length === 0 && (
                 <TableRow>
                   <TableCell
                     colSpan={7}

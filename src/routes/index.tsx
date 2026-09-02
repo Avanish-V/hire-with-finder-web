@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { stageTone, type Applicant, type LiveSession } from "@/lib/finder-data";
 import { getDashboardData, type DashboardStats } from "@/services/dashboardService";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/authContext";
 
 export const Route = createFileRoute("/")({
@@ -31,11 +32,12 @@ export const Route = createFileRoute("/")({
 
 function Overview() {
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [statsData, setStatsData] = useState<DashboardStats>({
-    activePosts: 8,
-    liveSessions: 3,
-    applicants: 426,
-    hireRate: "18%",
+    activePosts: 0,
+    liveSessions: 0,
+    applicants: 0,
+    hireRate: "0%",
   });
   const [liveNow, setLiveNow] = useState<LiveSession | null>(null);
   const [recentApplicants, setRecentApplicants] = useState<Applicant[]>([]);
@@ -49,7 +51,10 @@ function Overview() {
         setLiveNow(data.liveNowSession);
         setRecentApplicants(data.recentApplicants);
         setTopPosts(data.topPerformingJobs);
+        setLoading(false);
       }
+    }).catch(() => {
+      if (isMounted) setLoading(false);
     });
     return () => {
       isMounted = false;
@@ -57,20 +62,10 @@ function Overview() {
   }, []);
 
   const stats = [
-    {
-      label: "Active posts",
-      value: String(statsData.activePosts),
-      delta: "+2 this week",
-      icon: Briefcase,
-    },
-    {
-      label: "Live sessions",
-      value: String(statsData.liveSessions),
-      delta: "1 running now",
-      icon: Radio,
-    },
-    { label: "Applicants", value: String(statsData.applicants), delta: "+38 today", icon: Users },
-    { label: "Hire rate", value: statsData.hireRate, delta: "+3.2% vs last mo", icon: TrendingUp },
+    { label: "Active posts", value: String(statsData.activePosts), icon: Briefcase },
+    { label: "Live sessions", value: String(statsData.liveSessions), icon: Radio },
+    { label: "Applicants", value: String(statsData.applicants), icon: Users },
+    { label: "Hire rate", value: statsData.hireRate, icon: TrendingUp },
   ];
 
   const displayName = user?.name ? user.name.split(" ")[0] : "Recruiter";
@@ -100,8 +95,11 @@ function Overview() {
               <p className="text-eyebrow">{s.label}</p>
               <s.icon className="size-4 text-primary" />
             </div>
-            <p className="mt-3 font-display text-3xl font-semibold">{s.value}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{s.delta}</p>
+            {loading ? (
+              <Skeleton className="mt-3 h-9 w-16" />
+            ) : (
+              <p className="mt-3 font-display text-3xl font-semibold">{s.value}</p>
+            )}
           </div>
         ))}
       </div>
@@ -138,6 +136,22 @@ function Overview() {
               View all <ArrowRight className="size-3.5" />
             </Link>
           </div>
+          {loading ? (
+            <div className="space-y-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="size-9 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3.5 w-1/3" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : recentApplicants.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No applicants yet.</p>
+          ) : (
           <ul className="divide-y divide-border">
             {(recentApplicants || []).map((a) => (
               <li key={a.id} className="flex items-center gap-3 py-3">
@@ -154,6 +168,7 @@ function Overview() {
               </li>
             ))}
           </ul>
+          )}
         </section>
 
         <section className="panel p-6">
@@ -163,6 +178,18 @@ function Overview() {
               Manage
             </Link>
           </div>
+          {loading ? (
+            <div className="space-y-5">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-3.5 w-2/3" />
+                  <Skeleton className="h-1.5 w-full" />
+                </div>
+              ))}
+            </div>
+          ) : topPosts.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No posts yet.</p>
+          ) : (
           <div className="space-y-5">
             {(topPosts || []).map((j) => (
               <div key={j.id}>
@@ -174,6 +201,7 @@ function Overview() {
               </div>
             ))}
           </div>
+          )}
         </section>
       </div>
     </div>
