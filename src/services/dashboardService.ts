@@ -23,10 +23,10 @@ export interface DashboardData {
  */
 export async function getDashboardData(): Promise<DashboardData> {
   let stats: DashboardStats = {
-    activePosts: 8,
-    liveSessions: 3,
-    applicants: 426,
-    hireRate: "18%",
+    activePosts: 0,
+    liveSessions: 0,
+    applicants: 0,
+    hireRate: "0%",
   };
 
   try {
@@ -34,10 +34,10 @@ export async function getDashboardData(): Promise<DashboardData> {
     if (res.ok) {
       const data = await res.json();
       stats = {
-        activePosts: (data.activeJobs || 0) + (data.activeInternships || 0) || 8,
-        liveSessions: data.liveSessions || 3,
-        applicants: data.totalApplications || 426,
-        hireRate: data.hireRate || "18%",
+        activePosts: (data.activeJobs || 0) + (data.activeInternships || 0),
+        liveSessions: data.liveSessions || 0,
+        applicants: data.totalApplications || 0,
+        hireRate: data.hireRate || "0%",
       };
     }
   } catch (error) {
