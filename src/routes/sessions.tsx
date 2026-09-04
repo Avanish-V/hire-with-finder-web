@@ -250,7 +250,7 @@ function FullScreenSession({
   const pct = Math.min(100, Math.round((s.enrolled / (s.seats || 100)) * 100));
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
+    <div className="absolute inset-0 z-40 min-h-[calc(100dvh-61px)] overflow-y-auto bg-background animate-in fade-in duration-200">
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:px-8">
         <Badge variant="secondary" className={statusTone[s.status] || "bg-secondary"}>
           {s.status === "Live now" && (

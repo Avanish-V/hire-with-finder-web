@@ -190,7 +190,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 md:px-8 md:py-10">{children}</main>
+        <main className="relative flex-1 px-4 py-6 md:px-8 md:py-10">{children}</main>
 
         <nav className="sticky bottom-0 z-20 flex border-t border-border bg-background/95 backdrop-blur lg:hidden">
           {nav.map((item) => {
