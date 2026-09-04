@@ -72,12 +72,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
         >
           <Link to="/" className="flex min-w-0 items-center gap-2.5" aria-label="Finder home">
-            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary font-display text-base font-bold text-primary-foreground shadow-glow">
-              F
-            </span>
+           
             {!collapsed && (
               <span className="truncate font-display text-lg font-semibold tracking-tight">
-                finder<span className="text-primary">.</span>
+                Collabbit<span className="text-primary">Pro</span>
               </span>
             )}
           </Link>

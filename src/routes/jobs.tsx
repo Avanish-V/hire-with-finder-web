@@ -396,9 +396,9 @@ function PostJobScreen({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Internship">Internship</SelectItem>
-                <SelectItem value="Full-time">Full-time</SelectItem>
+                {/* <SelectItem value="Full-time">Full-time</SelectItem>
                 <SelectItem value="Part-time">Part-time</SelectItem>
-                <SelectItem value="Contract">Contract</SelectItem>
+                <SelectItem value="Contract">Contract</SelectItem> */}
               </SelectContent>
             </Select>
           </div>
@@ -407,7 +407,7 @@ function PostJobScreen({
             <Input id="job-location" placeholder="Remote · India" defaultValue={job?.location} />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="job-pay">Stipend / salary</Label>
+            <Label htmlFor="job-pay">Stipend / salary (Month)</Label>
             <Input id="job-pay" placeholder="₹25,000 / mo" defaultValue={job?.stipend} />
           </div>
           <div className="grid gap-2">
