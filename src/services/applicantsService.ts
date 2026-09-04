@@ -209,57 +209,81 @@ export async function updateApplicantStage(
  */
 function mapFinderProfile(data: Record<string, unknown>, applicant: Applicant): CandidateProfile {
   const baseProfile = (data.baseProfile || {}) as Record<string, unknown>;
-  const edu = (data.education || null) as Record<string, unknown> | null;
   const contact = (data.contact || {}) as Record<string, unknown>;
   const aura = (data.aura || {}) as Record<string, unknown>;
 
-  // Deduplicate skills by name
+  // Education may be a single object or an array of entries; take the first.
+  const eduRaw = Array.isArray(data.education) ? data.education[0] : data.education;
+  const edu = (eduRaw || null) as Record<string, unknown> | null;
+
+  // Deduplicate skills by name; accept strings or objects with name/skillName/skill.
   const seenSkills = new Set<string>();
   const rawSkills = Array.isArray(data.skills) ? data.skills : [];
   const skills: CandidateSkill[] = rawSkills
-    .filter((s: any) => {
-      const skillName = typeof s === "string" ? s : s?.name;
-      if (!skillName || seenSkills.has(skillName.toLowerCase())) return false;
-      seenSkills.add(skillName.toLowerCase());
+    .map((s: any) => {
+      const name = typeof s === "string" ? s : s?.name || s?.skillName || s?.skill || "";
+      return { raw: s, name: String(name).trim() };
+    })
+    .filter(({ name }) => {
+      if (!name || seenSkills.has(name.toLowerCase())) return false;
+      seenSkills.add(name.toLowerCase());
       return true;
     })
-    .map((s: any) => {
-      const name = typeof s === "string" ? s : s?.name || "Skill";
-      const category = typeof s === "object" ? s?.category : undefined;
-      const level = (s?.level as CandidateSkill["level"]) || "Intermediate";
-      return { name, level, category };
-    });
+    .map(({ raw, name }) => ({
+      name,
+      category: typeof raw === "object" && raw ? (raw.category as string | undefined) : undefined,
+      level: ((typeof raw === "object" && raw?.level) || "Intermediate") as CandidateSkill["level"],
+    }));
 
-  const genderRaw = String(baseProfile.gender || "").toUpperCase();
+  const genderRaw = String(baseProfile.gender || data.gender || "").toUpperCase();
   const gender: CandidateProfile["gender"] =
     genderRaw === "MALE" ? "Male" : genderRaw === "FEMALE" ? "Female" : genderRaw === "OTHER" ? "Other" : "Unspecified";
 
-  const resolvedName = String(baseProfile.name || applicant.name || "Candidate").trim();
-  const resolvedEmail = String(contact.email || applicant.email || "").trim();
+  const resolvedName = String(
+    baseProfile.name || baseProfile.fullName || data.name || data.fullName || applicant.name || "Candidate",
+  ).trim();
+  const resolvedEmail = String(contact.email || data.email || applicant.email || "").trim();
+
+  const summaryRaw = baseProfile.summary || baseProfile.bio || data.summary || data.bio;
+  const phoneRaw = contact.phoneNumber || contact.phone || data.phone || data.phoneNumber;
+  const avatarRaw = baseProfile.image || baseProfile.avatarUrl || data.avatarUrl || data.profileImage || data.image;
+  const githubRaw = data.githubUsername || baseProfile.githubUsername || baseProfile.github;
+  const locationRaw = baseProfile.location || data.location || contact.location;
+
+  const auraPoints =
+    typeof aura.auraPoints === "number"
+      ? aura.auraPoints
+      : typeof data.auraPoints === "number"
+        ? (data.auraPoints as number)
+        : applicant.match
+          ? applicant.match * 12
+          : 100;
 
   return {
-    uid: String(data.uid || applicant.externalUserId || applicant.id || "").trim(),
+    uid: String(data.uid || data.userId || applicant.externalUserId || applicant.id || "").trim(),
     name: resolvedName,
     email: resolvedEmail,
-    tagline: String(baseProfile.tagline || applicant.role || "Finder Member").trim(),
-    summary: String(baseProfile.summary || data.summary || `${resolvedName} is enrolled in ${applicant.target}.`).trim(),
-    phone: String(contact.phoneNumber || "").trim(),
+    tagline: String(baseProfile.tagline || data.tagline || applicant.role || "Finder Member").trim(),
+    summary: summaryRaw ? String(summaryRaw).trim() : `${resolvedName} applied to ${applicant.target}.`,
+    phone: phoneRaw ? String(phoneRaw).trim() : "",
     gender,
-    location: "India",
-    verified: true,
-    githubUsername: data.githubUsername ? String(data.githubUsername).trim() : undefined,
-    avatarUrl: baseProfile.image ? String(baseProfile.image) : undefined,
-    auraPoints: typeof aura.auraPoints === "number" ? aura.auraPoints : (applicant.match ? applicant.match * 12 : 100),
-    auraLevel: aura.level ? String(aura.level) : undefined,
-    education: edu ? {
-      college: String(edu.college || "Not provided"),
-      course: String(edu.course || "Not provided"),
-      specialization: String(edu.specialization || "—"),
-      courseStart: String(edu.start || "—"),
-      courseEnd: String(edu.end || "—"),
-      cgpa: String(edu.cgpa || "—"),
-    } : null,
-    skills: skills.length > 0 ? skills : [],
+    location: locationRaw ? String(locationRaw).trim() : "India",
+    verified: Boolean(data.verified ?? baseProfile.verified ?? true),
+    githubUsername: githubRaw ? String(githubRaw).trim().replace(/^@/, "") : undefined,
+    avatarUrl: avatarRaw ? String(avatarRaw) : undefined,
+    auraPoints,
+    auraLevel: aura.level || data.auraLevel ? String(aura.level || data.auraLevel) : undefined,
+    education: edu
+      ? {
+          college: String(edu.college || edu.institution || edu.university || "Not provided"),
+          course: String(edu.course || edu.degree || "Not provided"),
+          specialization: String(edu.specialization || edu.branch || "—"),
+          courseStart: String(edu.start || edu.startYear || edu.from || "—"),
+          courseEnd: String(edu.end || edu.endYear || edu.to || "—"),
+          cgpa: String(edu.cgpa || edu.gpa || "—"),
+        }
+      : null,
+    skills,
     experience: [],
   };
 }
