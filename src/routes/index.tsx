@@ -18,9 +18,9 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Track open roles, live skill sessions and incoming applicants across your Finder workspace.",
+          "Track open roles, live skill sessions and incoming applicants across your Collabbit workspace.",
       },
-      { property: "og:title", content: "Finder Overview — Hiring Dashboard" },
+      { property: "og:title", content: "Collabbit Overview — Hiring Dashboard" },
       {
         property: "og:description",
         content: "Roles, live sessions and applicant pipeline at a glance.",
