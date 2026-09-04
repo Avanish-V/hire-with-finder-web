@@ -303,20 +303,7 @@ function ProfilePage() {
                 {profile.role === "recruiter" ? "Talent Lead" : profile.role}
               </p>
             </div>
-            <div className="flex gap-6 text-center">
-              <div>
-                <p className="font-display text-2xl font-semibold">{profile.postsCount}</p>
-                <p className="text-xs text-muted-foreground">Posts</p>
-              </div>
-              <div>
-                <p className="font-display text-2xl font-semibold">{profile.sessionsCount}</p>
-                <p className="text-xs text-muted-foreground">Sessions</p>
-              </div>
-              <div>
-                <p className="font-display text-2xl font-semibold">{profile.applicantsCount}</p>
-                <p className="text-xs text-muted-foreground">Applicants</p>
-              </div>
-            </div>
+          
           </section>
 
           <form className="panel mt-6 p-6" onSubmit={saveUser}>
@@ -405,120 +392,8 @@ function ProfilePage() {
                 />
               </div>
 
-              <Separator className="my-6" />
-
-              <h3 className="text-lg font-semibold">Skills & focus areas</h3>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {profile.skills.map((s) => (
-                  <span
-                    key={s}
-                    className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs"
-                  >
-                    {s}
-                    {editingUser && (
-                      <button
-                        type="button"
-                        aria-label={`Remove ${s}`}
-                        onClick={() =>
-                          setProfile({
-                            ...profile,
-                            skills: profile.skills.filter((x) => x !== s),
-                          })
-                        }
-                      >
-                        <X className="size-3 text-muted-foreground hover:text-destructive" />
-                      </button>
-                    )}
-                  </span>
-                ))}
-              </div>
-              {editingUser && (
-                <div className="mt-3 flex gap-2">
-                  <Input
-                    value={newSkill}
-                    onChange={(e) => setNewSkill(e.target.value)}
-                    placeholder="Add a skill"
-                    className="max-w-xs"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      const v = newSkill.trim();
-                      if (!v || profile.skills.includes(v)) return;
-                      setProfile({ ...profile, skills: [...profile.skills, v] });
-                      setNewSkill("");
-                    }}
-                  >
-                    <Plus className="size-4" /> Add
-                  </Button>
-                </div>
-              )}
-
-              <Separator className="my-6" />
-
-              <h3 className="text-lg font-semibold">Notifications</h3>
-              <div className="mt-4 space-y-3">
-                {[
-                  {
-                    key: "applicantAlerts" as const,
-                    title: "New applicant alerts",
-                    desc: "Email me whenever someone applies to a post",
-                  },
-                  {
-                    key: "sessionEnrollments" as const,
-                    title: "Session enrollments",
-                    desc: "Notify me when a seat is booked",
-                  },
-                  {
-                    key: "weeklyDigest" as const,
-                    title: "Weekly hiring digest",
-                    desc: "Summary of pipeline movement every Monday",
-                  },
-                ].map(({ key, title, desc }) => (
-                  <div
-                    key={title}
-                    className="flex items-center justify-between rounded-lg border border-border p-4"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{title}</p>
-                      <p className="text-xs text-muted-foreground">{desc}</p>
-                    </div>
-                    <Switch
-                      checked={profile.notifications[key]}
-                      disabled={!editingUser}
-                      onCheckedChange={(checked) =>
-                        setProfile({
-                          ...profile,
-                          notifications: {
-                            ...profile.notifications,
-                            [key]: checked,
-                          },
-                        })
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
             </fieldset>
 
-            {editingUser && (
-              <div className="mt-6 flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setEditingUser(false);
-                    reload();
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={savingUser}>
-                  {savingUser ? "Saving..." : "Save user profile"}
-                </Button>
-              </div>
-            )}
           </form>
         </TabsContent>
 

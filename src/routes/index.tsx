@@ -76,16 +76,7 @@ function Overview() {
         eyebrow="Workspace"
         title={`Good evening, ${displayName}`}
         description="Here's what's moving across your internships, jobs and live skill sessions today."
-        action={
-          <div className="flex gap-2">
-            <Button asChild variant="outline">
-              <Link to="/sessions">Schedule session</Link>
-            </Button>
-            <Button asChild>
-              <Link to="/jobs">Post a role</Link>
-            </Button>
-          </div>
-        }
+        
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -23,7 +23,8 @@ import { Button } from "@/components/ui/button";
 import { profileFor, type Applicant, type CandidateProfile } from "@/lib/finder-data";
 import { getCandidateProfile } from "@/services/applicantsService";
 
-const PROFILE_BASE_URL = "http://localhost:8080/api/v1/users/view";
+const _CANDIDATE_API_BASE = (import.meta.env.VITE_CANDIDATE_API_URL as string || "http://localhost:8080").replace(/\/$/, "");
+const PROFILE_BASE_URL = `${_CANDIDATE_API_BASE}/api/v1/users/view`;
 
 const auraLevelColors: Record<string, string> = {
   NEWCOMER: "bg-muted text-muted-foreground border-border",
@@ -121,28 +122,7 @@ export function CandidateProfileScreen({
             </div>
           )}
 
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            {targetUrl && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpenApiUrl}
-                title="View live backend JSON response"
-                className="hidden sm:inline-flex"
-              >
-                <ExternalLink className="size-3.5 mr-1" /> View Raw API
-              </Button>
-            )}
-            <Button
-              size="sm"
-              onClick={() => {
-                window.location.href = `mailto:${displayEmail}`;
-                toast.success(`Opening mail client for ${displayEmail}`);
-              }}
-            >
-              <Mail className="size-4 mr-1.5" /> Contact
-            </Button>
-          </div>
+
         </div>
       </div>
 
@@ -312,43 +292,7 @@ export function CandidateProfileScreen({
             </p>
           </div>
 
-          {/* Finder Account Identity */}
-          {resolvedUid && (
-            <div className="panel p-5">
-              <p className="text-eyebrow">Finder Account</p>
-              <div className="mt-3 space-y-3">
-                <div className="flex items-center gap-2">
-                  <BadgeCheck className="size-4 text-primary" />
-                  <span className="text-sm font-medium text-foreground">Verified User</span>
-                </div>
 
-                <div className="rounded-md border border-border bg-secondary/50 p-2.5">
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">User UID</p>
-                  <div className="mt-1 flex items-center justify-between gap-2">
-                    <code className="truncate font-mono text-xs text-foreground">{resolvedUid}</code>
-                    <button
-                      type="button"
-                      onClick={handleCopyUid}
-                      title="Copy UID"
-                      className="shrink-0 rounded p-1 text-muted-foreground hover:bg-background hover:text-foreground"
-                    >
-                      {copiedUid ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
-                    </button>
-                  </div>
-                </div>
-
-                {targetUrl && (
-                  <button
-                    type="button"
-                    onClick={handleOpenApiUrl}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary/30 py-2 text-xs font-medium text-primary hover:bg-secondary/70 transition-colors"
-                  >
-                    <ExternalLink className="size-3" /> View backend endpoint
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* GitHub Connection */}
           {profile.githubUsername && (

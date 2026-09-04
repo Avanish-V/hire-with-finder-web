@@ -264,7 +264,8 @@ function mapFinderProfile(data: Record<string, unknown>, applicant: Applicant): 
   };
 }
 
-const PROFILE_BASE_URL = "http://localhost:8080/api/v1/users/view";
+const _CANDIDATE_API_BASE = (import.meta.env.VITE_CANDIDATE_API_URL as string || "http://localhost:8080").replace(/\/$/, "");
+const PROFILE_BASE_URL = `${_CANDIDATE_API_BASE}/api/v1/users/view`;
 
 /**
  * Fetch raw Finder user profile directly from /api/v1/users/view/:userId endpoint.

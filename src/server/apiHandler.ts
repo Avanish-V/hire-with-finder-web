@@ -1,6 +1,6 @@
 import { jobs, sessions, applicants } from "../lib/finder-data";
 
-const BACKEND_URL = process.env.BACKEND_URL || (process.env.NODE_ENV === "production" ? "https://recrutment-backend-avanish.onrender.com" : "http://127.0.0.1:8787");
+const BACKEND_URL = process.env.BACKEND_URL || (process.env.NODE_ENV === "production" ? "https://bmo6sd3nhbgp4akoqmgoamd3ja0cmyyn.lambda-url.ap-south-1.on.aws/" : "http://127.0.0.1:8787");
 
 let serverJobs = [...jobs];
 let serverSessions = [...sessions];
