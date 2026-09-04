@@ -22,7 +22,7 @@ export function FullScreenComposer({
   children: ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
+    <div className="absolute inset-0 z-40 min-h-[calc(100dvh-61px)] overflow-y-auto bg-background animate-in fade-in duration-200">
       <form
         onSubmit={(e) => {
           e.preventDefault();

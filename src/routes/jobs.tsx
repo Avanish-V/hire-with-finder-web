@@ -165,7 +165,7 @@ function JobApplicantsScreen({ job, onClose }: { job: Job; onClose: () => void }
   }, [job.id, job.title]);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
+    <div className="absolute inset-0 z-40 min-h-[calc(100dvh-61px)] overflow-y-auto bg-background animate-in fade-in duration-200">
       <div className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 md:px-8">
           <Button variant="ghost" size="icon" aria-label="Close applicants" onClick={onClose}>
