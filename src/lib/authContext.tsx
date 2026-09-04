@@ -24,7 +24,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => getUser());
+  // Start with no user on the server and during hydration; the stored
+  // session is restored in the initialize() effect below. Reading
+  // localStorage in a useState initializer causes an SSR hydration mismatch.
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Helper to save/sync recruiter profile with backend database
