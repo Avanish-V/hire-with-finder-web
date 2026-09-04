@@ -14,7 +14,7 @@ import { useAuth } from "@/lib/authContext";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Finder Overview — Hiring & Live Sessions Dashboard" },
+      { title: "Collabbit Overview — Hiring & Live Sessions Dashboard" },
       {
         name: "description",
         content:
