@@ -12,6 +12,7 @@ import {
   ImagePlus,
   Trash2,
   Link2,
+  Link2Off,
   PlayCircle,
   Pencil,
   Search,
@@ -35,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import { FullScreenComposer, FormSection } from "@/components/FullScreenComposer";
 import { PeopleList, peopleFor } from "@/components/PeopleList";
 
@@ -59,6 +61,7 @@ import {
   updateSession,
   deleteSession,
   getSessionDetails,
+  toggleSessionJoinLink,
 } from "@/services/sessionsService";
 
 export const Route = createFileRoute("/sessions")({
@@ -112,28 +115,38 @@ function SessionCard({
   onOpen,
   onEdit,
   onDelete,
+  onToggleJoinLink,
 }: {
   s: LiveSession;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onToggleJoinLink?: () => void;
 }) {
   const pct = Math.min(100, Math.round((s.enrolled / (s.seats || 100)) * 100));
   const totalHeadings = s.modules?.length || 0;
   const totalTopics =
     s.modules?.reduce((acc, m) => acc + (m.topics?.length || m.subModules?.length || 0), 0) || 0;
+  const isJoinEnabled = s.isJoinLinkEnabled !== false;
 
   return (
     <article className="panel overflow-hidden transition-all duration-200 hover:border-primary/30">
       <div className="relative">
         <ThumbBanner s={s} />
         <div className="absolute inset-x-0 top-0 flex items-center justify-between p-3">
-          <Badge variant="secondary" className={statusTone[s.status] || "bg-secondary"}>
-            {s.status === "Live now" && (
-              <span className="mr-1.5 inline-block size-1.5 animate-pulse rounded-full bg-live" />
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge variant="secondary" className={statusTone[s.status] || "bg-secondary"}>
+              {s.status === "Live now" && (
+                <span className="mr-1.5 inline-block size-1.5 animate-pulse rounded-full bg-live" />
+              )}
+              {s.status}
+            </Badge>
+            {!isJoinEnabled && (
+              <Badge variant="outline" className="border-amber-500/50 bg-background/90 text-amber-500 backdrop-blur-xs text-[11px] gap-1 px-2 font-medium">
+                <Link2Off className="size-3" /> Link Disabled
+              </Badge>
             )}
-            {s.status}
-          </Badge>
+          </div>
           {totalHeadings > 0 && (
             <Badge variant="secondary" className="bg-background/80 backdrop-blur-xs font-normal text-xs">
               <Layers className="size-3 mr-1" />
@@ -167,15 +180,36 @@ function SessionCard({
           <p className="mt-1.5 text-xs text-muted-foreground">{pct}% of seats filled</p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => toast.success("Meet link copied", { description: s.meetLink })}
-          className="mt-4 flex w-full items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40"
-        >
-          <Video className="size-3.5 shrink-0 text-primary" />
-          <span className="truncate">{s.meetLink}</span>
-          <Copy className="ml-auto size-3.5" />
-        </button>
+        {isJoinEnabled ? (
+          <button
+            type="button"
+            onClick={() => toast.success("Meet link copied", { description: s.meetLink })}
+            className="mt-4 flex w-full items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40"
+          >
+            <Video className="size-3.5 shrink-0 text-primary" />
+            <span className="truncate">{s.meetLink}</span>
+            <Copy className="ml-auto size-3.5" />
+          </button>
+        ) : (
+          <div className="mt-4 flex w-full items-center justify-between gap-2 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-2 text-left text-xs text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-2 truncate">
+              <Link2Off className="size-3.5 shrink-0 text-amber-500" />
+              <span className="truncate">Join link disabled for candidates</span>
+            </div>
+            {onToggleJoinLink && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleJoinLink();
+                }}
+                className="shrink-0 font-medium text-primary hover:underline"
+              >
+                Enable
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="mt-4 flex gap-2">
           <Button
@@ -192,6 +226,19 @@ function SessionCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {onToggleJoinLink && (
+                <DropdownMenuItem onSelect={onToggleJoinLink} className="gap-2">
+                  {isJoinEnabled ? (
+                    <>
+                      <Link2Off className="size-3.5 text-amber-500" /> Disable join link
+                    </>
+                  ) : (
+                    <>
+                      <Link2 className="size-3.5 text-emerald-500" /> Enable join link
+                    </>
+                  )}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onSelect={onEdit} className="gap-2">
                 <Pencil className="size-3.5" /> Edit session
               </DropdownMenuItem>
@@ -214,11 +261,13 @@ function FullScreenSession({
   onClose,
   onEdit,
   onDelete,
+  onToggleJoinLink,
 }: {
   s: LiveSession;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onToggleJoinLink?: () => void;
 }) {
   const [details, setDetails] = useState<{
     modules: SessionModule[];
@@ -260,6 +309,28 @@ function FullScreenSession({
         </Badge>
         <p className="truncate font-medium">{s.title}</p>
         <div className="ml-auto flex items-center gap-2">
+          {onToggleJoinLink && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onToggleJoinLink}
+              className={
+                s.isJoinLinkEnabled === false
+                  ? "border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
+                  : "border-emerald-500/50 text-emerald-500 hover:bg-emerald-500/10"
+              }
+            >
+              {s.isJoinLinkEnabled === false ? (
+                <>
+                  <Link2Off className="size-4 mr-1.5" /> Enable join link
+                </>
+              ) : (
+                <>
+                  <Link2 className="size-4 mr-1.5" /> Join link active
+                </>
+              )}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={onEdit}>
             <Pencil className="size-4" /> Edit session
           </Button>
@@ -283,13 +354,20 @@ function FullScreenSession({
             <div className="relative">
               <ThumbBanner s={s} className="h-64 md:h-80" />
               <div className="absolute inset-0 grid place-items-center bg-background/30">
-                <Button
-                  size="lg"
-                  onClick={() => toast.success("Opening Meet", { description: s.meetLink })}
-                >
-                  <PlayCircle className="size-5" />
-                  {s.status === "Live now" ? "Join live now" : "Open Meet room"}
-                </Button>
+                <div className="flex flex-col items-center gap-2">
+                  <Button
+                    size="lg"
+                    onClick={() => toast.success("Opening Meet", { description: s.meetLink })}
+                  >
+                    <PlayCircle className="size-5" />
+                    {s.status === "Live now" ? "Join live now" : "Open Meet room"}
+                  </Button>
+                  {s.isJoinLinkEnabled === false && (
+                    <Badge variant="outline" className="border-amber-500/50 bg-background/90 text-amber-500 backdrop-blur-xs text-xs gap-1">
+                      <Link2Off className="size-3" /> Link hidden from candidates
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
             <div className="p-5">
@@ -428,7 +506,27 @@ function FullScreenSession({
           </div>
 
           <div className="panel p-5">
-            <p className="text-eyebrow">Live session URL</p>
+            <div className="flex items-center justify-between">
+              <p className="text-eyebrow">Live session URL</p>
+              <Badge
+                variant="outline"
+                className={
+                  s.isJoinLinkEnabled === false
+                    ? "border-amber-500/50 bg-amber-500/10 text-amber-500 text-[11px] gap-1"
+                    : "border-emerald-500/50 bg-emerald-500/10 text-emerald-500 text-[11px] gap-1"
+                }
+              >
+                {s.isJoinLinkEnabled === false ? (
+                  <>
+                    <Link2Off className="size-3" /> Disabled
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="size-3" /> Active
+                  </>
+                )}
+              </Badge>
+            </div>
             <button
               type="button"
               onClick={() => toast.success("Join link copied", { description: s.meetLink })}
@@ -438,6 +536,27 @@ function FullScreenSession({
               <span className="truncate">{s.meetLink}</span>
               <Copy className="ml-auto size-3.5" />
             </button>
+
+            {onToggleJoinLink && (
+              <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="candidate-link-switch" className="text-xs font-medium cursor-pointer">
+                    Candidate Access
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    {s.isJoinLinkEnabled === false
+                      ? "Join link is disabled for learners"
+                      : "Learners can see & join via Meet"}
+                  </p>
+                </div>
+                <Switch
+                  id="candidate-link-switch"
+                  checked={s.isJoinLinkEnabled !== false}
+                  onCheckedChange={onToggleJoinLink}
+                />
+              </div>
+            )}
+
             <Button
               variant="outline"
               className="mt-3 w-full"
@@ -467,6 +586,7 @@ function NewSessionScreen({
   const [thumb, setThumb] = useState<string | null>(session?.thumbnail ?? null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [level, setLevel] = useState<LiveSession["level"]>(session?.level ?? "Beginner");
+  const [isJoinLinkEnabled, setIsJoinLinkEnabled] = useState<boolean>(session?.isJoinLinkEnabled !== false);
   
   // Format initial modules to have heading & topics array
   const [modules, setModules] = useState<
@@ -632,6 +752,7 @@ function NewSessionScreen({
       price: "Free",
       level,
       meetLink: meetLink || "https://meet.google.com/fdr-live",
+      isJoinLinkEnabled,
       summary,
       thumbnail: thumb || undefined,
       modules: cleanedModules,
@@ -925,6 +1046,23 @@ function NewSessionScreen({
             Paste your Meet/Zoom link, or leave blank to auto-generate a Meet link.
           </p>
         </div>
+
+        <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-3.5">
+          <div className="space-y-0.5">
+            <Label htmlFor="s-link-enable" className="text-sm font-medium cursor-pointer">
+              Enable live session join link
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              When enabled, enrolled learners can see and click the join link in Finder. You can disable this until you are ready to start.
+            </p>
+          </div>
+          <Switch
+            id="s-link-enable"
+            checked={isJoinLinkEnabled}
+            onCheckedChange={setIsJoinLinkEnabled}
+          />
+        </div>
+
         <div className="grid gap-2">
           <Label htmlFor="s-desc">What learners will get</Label>
           <Textarea
@@ -1013,6 +1151,29 @@ function SessionsPage() {
     }
   };
 
+  const handleToggleJoinLink = async (id: string) => {
+    const session = sessionsList.find((s) => s.id === id);
+    if (!session) return;
+    const newStatus = session.isJoinLinkEnabled === false ? true : false;
+
+    // Optimistic UI update
+    setSessionsList((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, isJoinLinkEnabled: newStatus } : s)),
+    );
+
+    const updated = await toggleSessionJoinLink(id, newStatus);
+    if (updated) {
+      setSessionsList((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, ...updated, isJoinLinkEnabled: newStatus } : s)),
+      );
+    }
+    toast.success(newStatus ? "Live join link enabled" : "Live join link disabled", {
+      description: newStatus
+        ? "Enrolled candidates can now view and access the Google Meet join link."
+        : "The join link is now hidden from candidates until you re-enable it.",
+    });
+  };
+
   const filteredSessions = sessionsList.filter((s) => {
     const matchesSearch =
       s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1096,6 +1257,7 @@ function SessionsPage() {
                 onOpen={() => setOpenId(session.id)}
                 onEdit={() => setEditId(session.id)}
                 onDelete={() => handleDelete(session.id)}
+                onToggleJoinLink={() => handleToggleJoinLink(session.id)}
               />
             ))}
           </div>
@@ -1128,6 +1290,7 @@ function SessionsPage() {
             setEditId(id);
           }}
           onDelete={() => handleDelete(active.id)}
+          onToggleJoinLink={() => handleToggleJoinLink(active.id)}
         />
       )}
     </>

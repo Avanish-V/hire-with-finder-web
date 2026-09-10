@@ -18,6 +18,12 @@ export type Job = {
   id: string;
   title: string;
   company: string;
+  companyName?: string;
+  companyLogoUrl?: string;
+  applyUrl?: string;
+  posterType?: "USER_PROFILE" | "COMPANY_PROFILE";
+  postingSource?: "COMPANY_PROFILE" | "MANUAL_POST";
+  isManualPost?: boolean;
   location: string;
   type: JobType;
   stipend: string;
@@ -45,6 +51,7 @@ export type LiveSession = {
   level: "Beginner" | "Intermediate" | "Advanced";
   status: "Live now" | "Scheduled" | "Completed";
   meetLink: string;
+  isJoinLinkEnabled?: boolean;
   tags: string[];
   thumbnail?: string;
   summary?: string;

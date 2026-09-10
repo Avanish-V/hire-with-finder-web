@@ -199,6 +199,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
         level: body.level || "Beginner",
         status: "Scheduled",
         meetLink: body.liveUrl || body.meetLink || "meet.google.com/fdr-live",
+        isJoinLinkEnabled: body.isJoinLinkEnabled ?? body.joinLinkEnabled ?? true,
         tags: body.category ? [body.category] : body.tags || ["Live"],
         thumbnail: body.thumbnail,
         summary: body.description || body.summary,
@@ -212,7 +213,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
   }
 
   if (path.startsWith("/api/courses/") && (method === "PUT" || method === "PATCH")) {
-    const id = path.replace("/api/courses/", "");
+    const id = path.replace("/api/courses/", "").replace("/join-link", "");
     try {
       const body = await request.json();
       const idx = serverSessions.findIndex((s) => s.id === id);
@@ -224,6 +225,8 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
           ...(body.description && { summary: body.description }),
           ...(body.duration && { duration: body.duration }),
           ...(body.liveUrl && { meetLink: body.liveUrl }),
+          ...(body.isJoinLinkEnabled !== undefined && { isJoinLinkEnabled: body.isJoinLinkEnabled }),
+          ...(body.enabled !== undefined && { isJoinLinkEnabled: body.enabled }),
           ...(body.thumbnail && { thumbnail: body.thumbnail }),
           ...(body.level && { level: body.level }),
           ...(body.price !== undefined && {

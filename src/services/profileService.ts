@@ -108,7 +108,7 @@ let inMemoryProfile: UserProfile = {
   name: "",
   email: "",
   phone: "",
-  role: "recruiter",
+  role: "",
   company: "",
   location: "",
   bio: "",

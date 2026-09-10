@@ -30,6 +30,9 @@ export interface BackendCoursePayload {
   category?: string;
   level?: LiveSession["level"];
   active?: boolean;
+  isJoinLinkEnabled?: boolean;
+  join_link_enabled?: boolean;
+  joinLinkEnabled?: boolean;
   posted_by?: string;
   created_at?: string;
   seats?: number;
@@ -171,6 +174,14 @@ export function mapBackendSession(raw: BackendCoursePayload): LiveSession {
     level: raw.level || "Beginner",
     status: validStatus,
     meetLink,
+    isJoinLinkEnabled:
+      typeof raw.isJoinLinkEnabled === "boolean"
+        ? raw.isJoinLinkEnabled
+        : typeof raw.join_link_enabled === "boolean"
+          ? raw.join_link_enabled
+          : typeof raw.joinLinkEnabled === "boolean"
+            ? raw.joinLinkEnabled
+            : true,
     tags: tags.length > 0 ? tags : ["Live", "Workshop"],
     thumbnail: raw.thumbnail?.trim() || raw.cover_image?.trim() || undefined,
     summary:
@@ -351,6 +362,7 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
     duration: (sessionData.duration || "90 min").trim(),
     thumbnail: sessionData.thumbnail || "",
     liveUrl: sessionData.meetLink || "https://meet.google.com/fdr-live",
+    isJoinLinkEnabled: sessionData.isJoinLinkEnabled ?? true,
     category: sessionData.tags?.join(", ") || "Live Workshop",
     level: sessionData.level || "Beginner",
     active: true,
@@ -373,6 +385,7 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
     level: sessionData.level || "Beginner",
     status: "Scheduled",
     meetLink: backendBody.liveUrl,
+    isJoinLinkEnabled: backendBody.isJoinLinkEnabled,
     tags: sessionData.tags || ["Live"],
     thumbnail: sessionData.thumbnail || undefined,
     summary: backendBody.description,
@@ -395,6 +408,7 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
         time: sessionData.time || mapped.time,
         seats: sessionData.seats || mapped.seats,
         modules: sessionData.modules || mapped.modules,
+        isJoinLinkEnabled: sessionData.isJoinLinkEnabled ?? mapped.isJoinLinkEnabled ?? true,
       };
 
       inMemorySessions.unshift(combined);
@@ -450,6 +464,10 @@ export async function updateSession(
   if (updates.duration) backendUpdates.duration = updates.duration.trim();
   if (updates.thumbnail !== undefined) backendUpdates.thumbnail = updates.thumbnail;
   if (updates.meetLink !== undefined) backendUpdates.liveUrl = updates.meetLink;
+  if (updates.isJoinLinkEnabled !== undefined) {
+    backendUpdates.isJoinLinkEnabled = updates.isJoinLinkEnabled;
+    backendUpdates.joinLinkEnabled = updates.isJoinLinkEnabled;
+  }
   if (updates.level) backendUpdates.level = updates.level;
   if (updates.tags) backendUpdates.category = updates.tags.join(", ");
   if (updates.seats !== undefined) backendUpdates.seats = updates.seats;
@@ -486,6 +504,35 @@ export async function updateSession(
   }
 
   return null;
+}
+
+/**
+ * Toggle enable/disable status of the live session join link
+ */
+export async function toggleSessionJoinLink(
+  id: string,
+  enabled: boolean,
+): Promise<LiveSession | null> {
+  try {
+    const res = await apiRequest(`/api/courses/${id}/join-link`, {
+      method: "PATCH",
+      body: JSON.stringify({ enabled, isJoinLinkEnabled: enabled }),
+    });
+
+    if (res.ok) {
+      const data = (await res.json()) as BackendCoursePayload;
+      const mapped = mapBackendSession(data);
+      inMemorySessions = inMemorySessions.map((s) =>
+        s.id === id ? { ...s, ...mapped, isJoinLinkEnabled: enabled } : s,
+      );
+      return inMemorySessions.find((s) => s.id === id) ?? mapped;
+    }
+  } catch (error) {
+    console.debug(`PATCH /api/courses/${id}/join-link failed, falling back to updateSession:`, error);
+  }
+
+  // Fallback: update via PUT /api/courses/:id
+  return updateSession(id, { isJoinLinkEnabled: enabled });
 }
 
 /**

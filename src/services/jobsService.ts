@@ -8,8 +8,20 @@ interface BackendJobPayload {
   id?: string;
   _id?: string;
   title?: string;
-  company?: string;
-  company_name?: string;
+  company?: string;           // legacy / fallback
+  companyName?: string;
+  companyLogoUrl?: string;
+  applyUrl?: string;
+  posterType?: string;        // always "COMPANY_PROFILE" from backend
+  postingSource?: string;     // always "COMPANY_PROFILE" from backend
+  companyInfo?: {
+    id?: string;
+    name?: string;
+    logoUrl?: string;
+    website?: string;
+    industry?: string;
+    city?: string;
+  };
   location?: string;
   type?: Job["type"];
   stipend?: string;
@@ -24,8 +36,8 @@ interface BackendJobPayload {
   status?: Job["status"];
   description?: string;
   recruiterUid?: string;
-  deadline?: string; // ISO-8601 date string
-  durationMonths?: number; // Duration in months
+  deadline?: string;
+  durationMonths?: number;
   [key: string]: unknown;
 }
 
@@ -33,19 +45,39 @@ interface BackendJobPayload {
  * Maps backend job entity to frontend Job type
  */
 function mapBackendJob(raw: BackendJobPayload): Job {
-  // Parse skills - backend may return empty array, string, or undefined
   let skillsArray: string[] = [];
   if (Array.isArray(raw.skills) && raw.skills.length > 0) {
     skillsArray = raw.skills;
   } else if (typeof raw.skills === "string" && raw.skills.trim()) {
     skillsArray = raw.skills.split(",").map((s: string) => s.trim()).filter(s => s);
   }
-  // If no skills provided, leave empty array instead of default
+
+  const companyName =
+    raw.companyInfo?.name ||
+    raw.companyName ||
+    raw.company ||
+    "Finder";
+
+  const companyLogoUrl =
+    raw.companyInfo?.logoUrl ||
+    raw.companyLogoUrl ||
+    undefined;
+
+  const applyUrl =
+    raw.applyUrl ||
+    raw.companyInfo?.website ||
+    undefined;
 
   return {
     id: raw.id || raw._id || `j-${Date.now()}`,
     title: raw.title || "Untitled Role",
-    company: raw.company || raw.company_name || "Finder",
+    company: companyName,
+    companyName,
+    companyLogoUrl,
+    applyUrl,
+    posterType: "COMPANY_PROFILE",
+    postingSource: "COMPANY_PROFILE",
+    isManualPost: false,
     location: raw.location || "Remote",
     type: raw.type || "Internship",
     stipend: raw.stipend || raw.salary || raw.compensation || "Not specified",

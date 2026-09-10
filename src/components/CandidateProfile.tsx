@@ -92,8 +92,22 @@ export function CandidateProfileScreen({
   const auraLevelKey = (profile.auraLevel || "NEWCOMER").toUpperCase();
   const auraBadgeClass = auraLevelColors[auraLevelKey] || "bg-primary/10 text-primary border-primary/20";
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    const origOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = origOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
   return (
-    <div className="absolute inset-0 z-40 min-h-[calc(100dvh-61px)] overflow-y-auto bg-background animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[60] overflow-y-auto bg-background animate-in fade-in duration-200">
       {/* Sticky top bar */}
       <div className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 md:px-8">

@@ -1,6 +1,24 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { MapPin, Users, Plus, MoreHorizontal, IndianRupee, X, Trash2, Edit, AlertCircle, Calendar, Clock } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import {
+  MapPin,
+  Users,
+  Plus,
+  MoreHorizontal,
+  IndianRupee,
+  X,
+  Trash2,
+  Edit,
+  AlertCircle,
+  Calendar,
+  Clock,
+  Building2,
+  ExternalLink,
+  Upload,
+  Image as ImageIcon,
+  CheckCircle2,
+  Globe,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
 import { FullScreenComposer, FormSection } from "@/components/FullScreenComposer";
@@ -29,6 +47,7 @@ import { getJobs, createJob, updateJob, deleteJob } from "@/services/jobsService
 import { getJobApplicants } from "@/services/applicantsService";
 import { useAuth } from "@/lib/authContext";
 import { getAuthToken } from "@/lib/apiClient";
+import { uploadToS3 } from "@/services/mediaService";
 
 export const Route = createFileRoute("/jobs")({
   head: () => ({
@@ -69,23 +88,39 @@ function JobCard({
   return (
     <article className="panel p-5 transition-colors hover:border-primary/40">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className={statusTone[job.status]}>
               {job.status}
             </Badge>
             <span className="text-xs text-muted-foreground">{job.posted}</span>
           </div>
-          <h3 className="mt-2 text-lg font-semibold">{job.title}</h3>
-          <p className="text-sm text-muted-foreground">{job.company}</p>
+
+          <div className="mt-2.5 flex items-center gap-3">
+            {job.companyLogoUrl ? (
+              <img
+                src={job.companyLogoUrl}
+                alt={job.company}
+                className="size-9 rounded-lg object-contain border border-border bg-muted/30 p-1 shrink-0"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = "none";
+                }}
+              />
+            ) : null}
+            <div className="min-w-0">
+              <h3 className="text-lg font-semibold truncate">{job.title}</h3>
+              <p className="text-sm text-muted-foreground truncate">{job.company}</p>
+            </div>
+          </div>
         </div>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
               aria-label="Role actions"
-              className="size-8 text-muted-foreground"
+              className="size-8 text-muted-foreground shrink-0"
             >
               <MoreHorizontal className="size-4" />
             </Button>
@@ -220,14 +255,16 @@ function PostJobScreen({
 }: {
   job?: Job;
   onClose: () => void;
-  onSubmit: (data: Partial<Job>) => void;
+  onSubmit: (data: Partial<Job>) => void | Promise<void>;
   onDelete?: () => void;
 }) {
+  const navigate = useNavigate();
   const editing = Boolean(job);
   const [selectedType, setSelectedType] = useState<Job["type"]>(job?.type ?? "Internship");
-  const [posterType, setPosterType] = useState<"USER_PROFILE" | "COMPANY_PROFILE">("USER_PROFILE");
   const [hasCompanyProfile, setHasCompanyProfile] = useState<boolean | null>(null);
+  const [companyProfileData, setCompanyProfileData] = useState<{ name: string; logoUrl?: string } | null>(null);
   const [checkingCompany, setCheckingCompany] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Check if user has a company profile when component mounts
   useEffect(() => {
@@ -243,7 +280,16 @@ function PostJobScreen({
           },
         });
 
-        setHasCompanyProfile(response.ok);
+        if (response.ok) {
+          const data = await response.json();
+          setHasCompanyProfile(true);
+          setCompanyProfileData({
+            name: data.name || "My Company",
+            logoUrl: data.logoUrl || "",
+          });
+        } else {
+          setHasCompanyProfile(false);
+        }
       } catch (error) {
         console.error("Error checking company profile:", error);
         setHasCompanyProfile(false);
@@ -256,6 +302,14 @@ function PostJobScreen({
   }, []);
 
   const handleSubmit = async () => {
+    // Ensure company profile is MUST
+    if (hasCompanyProfile === false || hasCompanyProfile === null) {
+      toast.error("Company profile is required", {
+        description: "You must create a company profile before you can post an internship or job opening. Company profile is mandatory.",
+      });
+      return;
+    }
+
     const title = (document.getElementById("job-title") as HTMLInputElement)?.value;
     const location = (document.getElementById("job-location") as HTMLInputElement)?.value;
     const stipend = (document.getElementById("job-pay") as HTMLInputElement)?.value;
@@ -264,35 +318,31 @@ function PostJobScreen({
     const deadline = (document.getElementById("job-deadline") as HTMLInputElement)?.value;
     const durationMonths = (document.getElementById("job-duration") as HTMLInputElement)?.value;
 
-    const skills = skillsRaw ? skillsRaw.split(",").map((s) => s.trim()) : ["React"];
+    const skills = skillsRaw ? skillsRaw.split(",").map((s) => s.trim()).filter(Boolean) : ["React"];
 
-    // Validate company profile exists if posting as company
-    if (posterType === "COMPANY_PROFILE" && hasCompanyProfile === false) {
-      toast.error("Company profile required", {
-        description: "Please create a company profile before posting jobs on behalf of a company, or select 'Your Profile' instead.",
-      });
-      return;
-    }
-
-    onSubmit({
-      title: title || "Frontend Engineering Intern",
+    const payload = {
+      title: title || (selectedType === "Internship" ? "Frontend Engineering Intern" : "Software Engineer"),
       type: selectedType,
       location: location || "Remote · India",
       stipend: stipend || "₹25,000 / mo",
       skills,
-      status: "Open",
+      status: "Open" as const,
       description: desc,
-      posterType, // Add posterType to the submission
+      posterType: "COMPANY_PROFILE" as const,
+      company: companyProfileData?.name || undefined,
       deadline: deadline || undefined,
       durationMonths: durationMonths ? parseInt(durationMonths, 10) : undefined,
-    } as any);
+    };
 
-    onClose();
-    toast.success(editing ? "Role updated" : "Role posted", {
-      description: editing
-        ? "Your changes are live on the listing."
-        : "Your listing is now live on Finder.",
-    });
+    try {
+      setSubmitting(true);
+      await onSubmit(payload as any);
+      onClose();
+    } catch (err) {
+      console.error("Failed to submit opening:", err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -301,78 +351,73 @@ function PostJobScreen({
       description={
         editing
           ? "Changes go live on the Finder board as soon as you save."
-          : "Published roles appear on the Finder board immediately."
+          : "Published roles appear on the Finder board immediately under your verified company profile."
       }
-      submitLabel={editing ? "Save changes" : "Publish role"}
+      submitLabel={submitting ? "Saving..." : editing ? "Save changes" : "Publish role"}
       onClose={onClose}
       onSubmit={handleSubmit}
       onDelete={onDelete}
       deleteLabel="Delete role"
     >
-      <FormSection title="Post as" hint="Choose how you want to appear on this job listing.">
-        <div className="grid gap-3">
-          <div
-            onClick={() => setPosterType("USER_PROFILE")}
-            className={`flex items-start gap-3 cursor-pointer rounded-lg border-2 p-4 transition-colors ${
-              posterType === "USER_PROFILE"
-                ? "border-primary bg-primary/5"
-                : "border-border hover:border-primary/50"
-            }`}
-          >
-            <div className="mt-0.5">
-              <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
-                posterType === "USER_PROFILE" ? "border-primary" : "border-muted-foreground"
-              }`}>
-                {posterType === "USER_PROFILE" && (
-                  <div className="h-2 w-2 rounded-full bg-primary"></div>
-                )}
-              </div>
-            </div>
-            <div className="flex-1">
-              <p className="font-medium">Your Profile</p>
-              <p className="text-sm text-muted-foreground">
-                Post as your personal recruiter profile. Candidates will see your name.
-              </p>
-            </div>
-          </div>
+      {/* Company Profile Status: Company Profile is MUST */}
+      {checkingCompany && (
+        <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-2.5 text-sm text-muted-foreground">
+          <div className="size-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
+          <span>Verifying company profile...</span>
+        </div>
+      )}
 
-          <div
-            onClick={() => setPosterType("COMPANY_PROFILE")}
-            className={`flex items-start gap-3 cursor-pointer rounded-lg border-2 p-4 transition-colors ${
-              posterType === "COMPANY_PROFILE"
-                ? "border-primary bg-primary/5"
-                : "border-border hover:border-primary/50"
-            }`}
-          >
-            <div className="mt-0.5">
-              <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
-                posterType === "COMPANY_PROFILE" ? "border-primary" : "border-muted-foreground"
-              }`}>
-                {posterType === "COMPANY_PROFILE" && (
-                  <div className="h-2 w-2 rounded-full bg-primary"></div>
-                )}
-              </div>
-            </div>
+      {!checkingCompany && hasCompanyProfile === false && (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-5">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="size-5 text-destructive shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="font-medium">Company Profile</p>
-              <p className="text-sm text-muted-foreground">
-                Post on behalf of your company. Candidates will see your company name and logo.
+              <h4 className="font-semibold text-destructive text-base">Company Profile Required</h4>
+              <p className="text-sm text-muted-foreground mt-1">
+                You must create a company profile before you can post an internship or job opening. A company profile is mandatory for all listings on Finder.
               </p>
-              {!checkingCompany && hasCompanyProfile === false && (
-                <div className="mt-2 flex items-start gap-2 rounded-md bg-warning/10 border border-warning/30 p-2">
-                  <AlertCircle className="size-4 text-warning shrink-0 mt-0.5" />
-                  <div className="flex-1 text-xs">
-                    <p className="font-medium text-warning">No company profile found</p>
-                    <p className="text-muted-foreground mt-0.5">
-                      You need to create a company profile first. Go to Profile &gt; Company.
-                    </p>
-                  </div>
-                </div>
-              )}
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  onClose();
+                  navigate({ to: "/profile" });
+                }}
+                className="mt-3 gap-1.5"
+              >
+                <Building2 className="size-4" />
+                Set up company profile &rarr;
+              </Button>
             </div>
           </div>
         </div>
-      </FormSection>
+      )}
+
+      {!checkingCompany && hasCompanyProfile === true && (
+        <div className="rounded-xl border border-border bg-card p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            {companyProfileData?.logoUrl ? (
+              <img
+                src={companyProfileData.logoUrl}
+                alt={companyProfileData.name}
+                className="size-10 rounded-lg object-contain border border-border bg-background p-1 shrink-0"
+              />
+            ) : (
+              <div className="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Building2 className="size-5" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground font-medium">Posting on behalf of</p>
+              <h4 className="text-base font-semibold truncate text-foreground">{companyProfileData?.name}</h4>
+            </div>
+          </div>
+          <Badge variant="outline" className="border-success/30 bg-success/10 text-success gap-1 text-xs shrink-0">
+            <CheckCircle2 className="size-3.5" /> Company Profile Verified
+          </Badge>
+        </div>
+      )}
 
       <FormSection title="Role basics" hint="What you're hiring for and where.">
         <div className="grid gap-2">

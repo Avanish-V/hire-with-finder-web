@@ -105,6 +105,11 @@ function Overview() {
               <span className="flex items-center gap-1.5 rounded-full bg-live/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-live">
                 <span className="size-1.5 animate-pulse rounded-full bg-live" /> Live now
               </span>
+              {liveNow.isJoinLinkEnabled === false && (
+                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-500">
+                  Link Disabled for Candidates
+                </span>
+              )}
               <span className="text-xs text-muted-foreground">{liveNow.enrolled} joined</span>
             </div>
             <h2 className="mt-1.5 text-lg font-semibold">{liveNow.title}</h2>
@@ -112,7 +117,9 @@ function Overview() {
               Hosted by {liveNow.host} · {liveNow.meetLink}
             </p>
           </div>
-          <Button>Join Meet</Button>
+          <Link to="/sessions">
+            <Button>Open Sessions</Button>
+          </Link>
         </div>
       )}
 
