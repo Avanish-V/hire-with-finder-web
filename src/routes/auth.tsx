@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Loader2, Shield } from "lucide-react";
+import { BriefcaseBusiness, Check, Loader2, Radio, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/authContext";
@@ -11,12 +11,12 @@ export const Route = createFileRoute("/auth")({
       { title: "Sign in to Finder" },
       {
         name: "description",
-        content: "Sign in to Finder with your Google account to manage hiring and live skill sessions.",
+        content: "Sign in to Finder to manage jobs, internships, applicants, and live skill sessions in one focused workspace.",
       },
       { property: "og:title", content: "Sign in to Finder" },
       {
         property: "og:description",
-        content: "Recruitment and live skill sessions, simplified.",
+        content: "Move promising people from application to opportunity with Finder.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -77,46 +77,63 @@ function AuthPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center bg-background px-6 py-12">
-      {/* Pattern + glow backdrop */}
-      <div
-        className="pointer-events-none fixed inset-0 bg-pattern opacity-60"
-        style={{
-          maskImage: "radial-gradient(ellipse at center, transparent 20%, black 55%, black 75%, transparent 100%)",
-          WebkitMaskImage: "radial-gradient(ellipse at center, transparent 20%, black 55%, black 75%, transparent 100%)",
-        }}
-      />
-      <div
-        className="pointer-events-none fixed left-1/2 top-0 -translate-x-1/2 opacity-40 blur-3xl"
-        style={{
-          width: "48rem",
-          height: "28rem",
-          background: "radial-gradient(circle, var(--color-primary) 0%, transparent 65%)",
-        }}
-      />
+    <div className="relative min-h-screen overflow-hidden bg-background">
+      <div className="pointer-events-none absolute inset-0 bg-pattern opacity-35" />
+      <div className="relative mx-auto grid min-h-screen w-full max-w-7xl items-center gap-12 px-6 py-10 lg:grid-cols-[1.15fr_0.85fr] lg:px-12 xl:gap-24">
+        <section className="flex flex-col justify-center py-6 lg:py-12">
+          <Link to="/" className="inline-flex w-fit items-center gap-3" aria-label="Finder home">
+            <span className="grid size-11 place-items-center rounded-lg bg-primary font-display text-xl font-bold text-primary-foreground shadow-glow">
+              F
+            </span>
+            <span className="font-display text-2xl font-bold text-foreground">Finder<span className="text-primary">.</span></span>
+          </Link>
 
-      <div className="relative z-10 w-full max-w-[420px] text-center">
-        {/* Logo mark */}
-        <Link to="/" className="mb-10 inline-flex flex-col items-center gap-4">
-          <span className="grid size-12 place-items-center rounded-2xl bg-primary shadow-sm">
-            <span className="size-5 rounded-full border-[3px] border-primary-foreground" />
-          </span>
-          <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight text-primary">Finder</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Recruitment and live skill sessions.</p>
+          <div className="mt-14 max-w-2xl lg:mt-20">
+            <p className="text-eyebrow text-primary">Built for modern recruitment</p>
+            <h1 className="mt-5 text-4xl font-bold leading-[1.08] text-foreground sm:text-5xl lg:text-6xl">
+              Find the people who move your company forward.
+            </h1>
+            <p className="mt-6 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
+              Publish internships and jobs, manage every applicant, and host live skill sessions from one focused workspace.
+            </p>
           </div>
-        </Link>
 
-        {/* Login card */}
-        <div className="rounded-2xl border border-border bg-card p-8 shadow-panel sm:p-10">
-          <h2 className="font-display text-xl font-semibold text-foreground">Welcome back</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Sign in to continue to your workspace.</p>
+          <div className="mt-10 grid max-w-xl gap-3 sm:grid-cols-3">
+            {[
+              { icon: BriefcaseBusiness, label: "Post opportunities" },
+              { icon: UsersRound, label: "Manage applicants" },
+              { icon: Radio, label: "Host live sessions" },
+            ].map(({ icon: Icon, label }) => (
+              <div key={label} className="flex items-center gap-2.5 border-l-2 border-primary pl-3 text-sm font-medium text-foreground">
+                <Icon className="size-4 shrink-0 text-primary" />
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 flex items-center gap-3 text-sm text-muted-foreground">
+            <span className="grid size-7 place-items-center rounded-full bg-success text-success-foreground">
+              <Check className="size-4" />
+            </span>
+            One clear pipeline, from first application to final decision.
+          </div>
+        </section>
+
+        <section className="flex justify-center lg:justify-end">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-7 shadow-panel sm:p-10">
+            <div className="mb-8 flex items-center gap-2 lg:hidden">
+              <span className="grid size-9 place-items-center rounded-lg bg-primary font-display font-bold text-primary-foreground">F</span>
+              <span className="font-display text-xl font-bold">Finder<span className="text-primary">.</span></span>
+            </div>
+            <p className="text-eyebrow text-primary">Recruiter access</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold text-foreground">Welcome back</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">Continue to your hiring and learning workspace.</p>
 
           <Button
             size="lg"
             disabled={loading}
             onClick={handleGoogleAuth}
-            className="mt-8 h-12 w-full justify-center gap-3 border border-border bg-background text-foreground shadow-sm transition-all hover:bg-secondary hover:text-secondary-foreground"
+            className="mt-8 h-12 w-full justify-center gap-3 bg-primary text-primary-foreground shadow-glow transition-all hover:bg-primary/90"
           >
             {loading ? (
               <Loader2 className="size-5 animate-spin" />
@@ -128,24 +145,14 @@ function AuthPage() {
 
           <div className="mt-8 flex items-center gap-4">
             <div className="h-px flex-1 bg-border" />
-            <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              <Shield className="size-3" />
-              Protected
-            </span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Secure access</span>
             <div className="h-px flex-1 bg-border" />
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-10 flex items-center justify-center gap-4 text-xs text-muted-foreground">
-          <Link to="/" className="transition-colors hover:text-foreground">
-            Terms of Service
-          </Link>
-          <span className="size-1 rounded-full bg-muted-foreground/40" />
-          <Link to="/" className="transition-colors hover:text-foreground">
-            Privacy Policy
-          </Link>
-        </div>
+            <p className="mt-8 text-center text-xs leading-5 text-muted-foreground">
+              By continuing, you agree to Finder&apos;s Terms of Service and Privacy Policy.
+            </p>
+          </div>
+        </section>
       </div>
     </div>
   );
