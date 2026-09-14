@@ -1,2 +1,2 @@
 # Talent Finder Hub
-versal deploy
+versal deploy 1
