@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/authContext";
 
@@ -182,11 +182,30 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <LogOut className="size-4" />
             </Button>
-            <Link to="/profile" aria-label="Profile">
-              <Avatar className="size-9 border border-border transition-opacity hover:opacity-80">
-                <AvatarFallback className="bg-secondary text-xs font-semibold">{initials}</AvatarFallback>
-              </Avatar>
-            </Link>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link to="/profile" aria-label="Profile">
+                  <Avatar className="size-9 border-2 border-border/60 ring-2 ring-transparent transition-all hover:ring-primary/40 hover:border-primary/60">
+                    {user?.avatarUrl && (
+                      <AvatarImage
+                        src={user.avatarUrl}
+                        alt={user?.name ?? "User"}
+                        className="object-cover"
+                      />
+                    )}
+                    <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" align="end" className="max-w-[200px]">
+                <p className="font-medium truncate">{user?.name ?? "Profile"}</p>
+                {user?.email && (
+                  <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
+                )}
+              </TooltipContent>
+            </Tooltip>
           </div>
         </header>
 

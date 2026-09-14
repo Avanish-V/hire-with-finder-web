@@ -55,7 +55,7 @@ export type LiveSession = {
   tags: string[];
   thumbnail?: string;
   summary?: string;
-  modules?: SessionModule[];
+  modules?: SessionModule[] | null;
 };
 
 export type SessionSubModule = {

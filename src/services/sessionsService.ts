@@ -40,7 +40,7 @@ export interface BackendCoursePayload {
   enrolled?: number;
   enrollments?: unknown[];
   tags?: string[];
-  modules?: SessionModule[];
+  modules?: SessionModule[] | null;
   postedByInfo?: {
     name?: string;
     email?: string;
@@ -138,11 +138,19 @@ export function mapBackendSession(raw: BackendCoursePayload): LiveSession {
     "https://meet.google.com/fdr-live";
 
   // Determine modules
-  const rawModules = mapBackendModules(raw.modules);
+  const rawModules = raw.modules === null
+    ? null
+    : Array.isArray(raw.modules)
+      ? mapBackendModules(raw.modules)
+      : null;
 
   // Determine status
   const validStatus: LiveSession["status"] =
-    (raw.status as LiveSession["status"]) || (raw.active === false ? "Completed" : "Scheduled");
+    (raw.sessionStatus === "ENDED" || raw.skillState === "ENDED" || raw.status === "Completed" || raw.active === false)
+      ? "Completed"
+      : (raw.sessionStatus === "LIVE" || raw.skillState === "LIVE" || raw.status === "Live now")
+      ? "Live now"
+      : (raw.status as LiveSession["status"]) || "Scheduled";
 
   const dateStr = (typeof raw.date === "string" && raw.date.trim()) 
     ? raw.date 
@@ -243,9 +251,9 @@ export async function getSessions(): Promise<LiveSession[]> {
 export async function getSessionDetails(
   id: string,
   sessionTitle: string,
-  initialModules: SessionModule[] = [],
-): Promise<{ modules: SessionModule[]; students: Applicant[] }> {
-  let modules: SessionModule[] = initialModules && initialModules.length > 0 ? initialModules : [];
+  initialModules: SessionModule[] | null = null,
+): Promise<{ modules: SessionModule[] | null; students: Applicant[] }> {
+  let modules: SessionModule[] | null = initialModules && initialModules.length > 0 ? initialModules : null;
   let students: Applicant[] = peopleFor(sessionTitle, "Session");
 
   try {
@@ -260,8 +268,8 @@ export async function getSessionDetails(
     console.debug(`Content API for course ${id} unavailable, using existing modules.`);
   }
 
-  // Fallback: If modules still empty, query course detail endpoint
-  if (modules.length === 0) {
+  // Fallback: If modules still empty/null, query course detail endpoint
+  if (!modules || modules.length === 0) {
     try {
       const courseRes = await apiRequest(`/api/courses/${id}`);
       if (courseRes.ok) {
@@ -324,7 +332,7 @@ export async function getSessionDetails(
  * Create a new live skill session via POST /api/courses
  */
 export async function createSession(sessionData: Partial<LiveSession>): Promise<LiveSession> {
-  const formattedModules = Array.isArray(sessionData.modules)
+  const formattedModules = Array.isArray(sessionData.modules) && sessionData.modules.length > 0
     ? sessionData.modules.map((m, idx) => {
         const headingTitle = (m.heading || m.title || `Heading ${idx + 1}`).trim();
         const subMods = Array.isArray(m.subModules) && m.subModules.length > 0
@@ -350,7 +358,7 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
           subModules: subMods,
         };
       })
-    : [];
+    : null;
 
   const backendBody = {
     title: (sessionData.title || "Live Skill Session").trim(),
@@ -364,6 +372,7 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
     liveUrl: sessionData.meetLink || "https://meet.google.com/fdr-live",
     isJoinLinkEnabled: sessionData.isJoinLinkEnabled ?? true,
     category: sessionData.tags?.join(", ") || "Live Workshop",
+    tags: sessionData.tags || ["Live"],
     level: sessionData.level || "Beginner",
     active: true,
     seats: sessionData.seats || 100,
@@ -389,7 +398,7 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
     tags: sessionData.tags || ["Live"],
     thumbnail: sessionData.thumbnail || undefined,
     summary: backendBody.description,
-    modules: sessionData.modules || [],
+    modules: sessionData.modules && sessionData.modules.length > 0 ? sessionData.modules : null,
   };
 
   try {
@@ -407,7 +416,7 @@ export async function createSession(sessionData: Partial<LiveSession>): Promise<
         date: sessionData.date || mapped.date,
         time: sessionData.time || mapped.time,
         seats: sessionData.seats || mapped.seats,
-        modules: sessionData.modules || mapped.modules,
+        modules: sessionData.modules !== undefined ? sessionData.modules : mapped.modules,
         isJoinLinkEnabled: sessionData.isJoinLinkEnabled ?? mapped.isJoinLinkEnabled ?? true,
       };
 
@@ -430,32 +439,36 @@ export async function updateSession(
   updates: Partial<LiveSession>,
 ): Promise<LiveSession | null> {
   const formattedModules = Array.isArray(updates.modules)
-    ? updates.modules.map((m, idx) => {
-        const headingTitle = (m.heading || m.title || `Heading ${idx + 1}`).trim();
-        const subMods = Array.isArray(m.subModules) && m.subModules.length > 0
-          ? m.subModules.map((sm, sIdx) => ({
-              title: sm.title.trim(),
-              description: (sm.description || "").trim(),
-              order: sm.order ?? sIdx,
-            }))
-          : Array.isArray(m.topics)
-          ? m.topics.filter(Boolean).map((t, tIdx) => ({
-              title: String(t).trim(),
-              description: "",
-              order: tIdx,
-            }))
-          : [];
+    ? (updates.modules.length > 0
+        ? updates.modules.map((m, idx) => {
+            const headingTitle = (m.heading || m.title || `Heading ${idx + 1}`).trim();
+            const subMods = Array.isArray(m.subModules) && m.subModules.length > 0
+              ? m.subModules.map((sm, sIdx) => ({
+                  title: sm.title.trim(),
+                  description: (sm.description || "").trim(),
+                  order: sm.order ?? sIdx,
+                }))
+              : Array.isArray(m.topics)
+              ? m.topics.filter(Boolean).map((t, tIdx) => ({
+                  title: String(t).trim(),
+                  description: "",
+                  order: tIdx,
+                }))
+              : [];
 
-        return {
-          heading: headingTitle,
-          title: headingTitle,
-          topics: Array.isArray(m.topics) ? m.topics : subMods.map((sm) => sm.title),
-          description: (m.description || m.detail || "").trim(),
-          order: m.order ?? idx,
-          subModules: subMods,
-        };
-      })
-    : undefined;
+            return {
+              heading: headingTitle,
+              title: headingTitle,
+              topics: Array.isArray(m.topics) ? m.topics : subMods.map((sm) => sm.title),
+              description: (m.description || m.detail || "").trim(),
+              order: m.order ?? idx,
+              subModules: subMods,
+            };
+          })
+        : null)
+    : updates.modules === null
+      ? null
+      : undefined;
 
   const backendUpdates: Record<string, unknown> = {};
   if (updates.title) backendUpdates.title = updates.title.trim();
@@ -469,7 +482,10 @@ export async function updateSession(
     backendUpdates.joinLinkEnabled = updates.isJoinLinkEnabled;
   }
   if (updates.level) backendUpdates.level = updates.level;
-  if (updates.tags) backendUpdates.category = updates.tags.join(", ");
+  if (updates.tags) {
+    backendUpdates.category = updates.tags.join(", ");
+    backendUpdates.tags = updates.tags;
+  }
   if (updates.seats !== undefined) backendUpdates.seats = updates.seats;
   if (updates.date !== undefined) backendUpdates.date = updates.date;
   if (updates.time !== undefined) backendUpdates.time = updates.time;

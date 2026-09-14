@@ -174,7 +174,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
         ...session,
         instructor: session.host,
         description: session.summary,
-        modules: session.modules || [],
+        modules: session.modules ?? null,
       });
     }
     return json({ error: "Course not found" }, 404);
@@ -207,7 +207,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
         tags: body.category ? [body.category] : body.tags || ["Live"],
         thumbnail: body.thumbnail,
         summary: body.description || body.summary,
-        modules: body.modules,
+        modules: body.modules ?? null,
       };
       serverSessions.unshift(newSession as any);
       return json(newSession, 201);
@@ -236,6 +236,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
           ...(body.price !== undefined && {
             price: body.price === 0 ? "Free" : `₹${body.price}`,
           }),
+          ...(body.modules !== undefined && { modules: body.modules }),
         };
         return json(serverSessions[idx]);
       }
