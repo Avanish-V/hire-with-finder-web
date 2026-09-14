@@ -386,11 +386,11 @@ export async function getCompanyProfile(companyId: string): Promise<CompanyProfi
 }
 
 /**
- * Update user profile only (new endpoint)
+ * Update user profile only (primary endpoint)
  */
 export async function updateUserProfile(updates: UpdateUserProfileRequest): Promise<UserProfile | null> {
   try {
-    const res = await apiRequest("/api/v1/user/profile", {
+    const res = await apiRequest("/api/user/profile", {
       method: "PUT",
       body: JSON.stringify(updates),
     });
@@ -402,6 +402,9 @@ export async function updateUserProfile(updates: UpdateUserProfileRequest): Prom
       inMemoryProfile = profile;
       
       return profile;
+    } else {
+      const errorText = await res.text();
+      console.error(`Failed to update user profile (${res.status}):`, errorText);
     }
   } catch (error) {
     console.error("Failed to update user profile:", error);

@@ -1,6 +1,10 @@
 import { jobs, sessions, applicants } from "../lib/finder-data";
 
-const BACKEND_URL = process.env.BACKEND_URL || (process.env.NODE_ENV === "production" ? "https://bmo6sd3nhbgp4akoqmgoamd3ja0cmyyn.lambda-url.ap-south-1.on.aws/" : "http://127.0.0.1:8787");
+// Single source of truth: VITE_API_URL (same var used by the client-side apiClient.ts).
+// Hardcoded fallback ensures the SSR proxy never accidentally hits localhost in production.
+const BACKEND_URL =
+  process.env.VITE_API_URL ||
+  "https://bmo6sd3nhbgp4akoqmgoamd3ja0cmyyn.lambda-url.ap-south-1.on.aws/";
 
 let serverJobs = [...jobs];
 let serverSessions = [...sessions];
@@ -54,7 +58,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
   // 1. Try to proxy to backend if available
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8-second timeout for prod Lambda cold-starts
 
     const backendUrl = `${BACKEND_URL}${url.pathname}${url.search}`;
     const proxyHeaders = new Headers(request.headers);
@@ -267,7 +271,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     }
   }
 
-  // Profile Endpoints
+  // Profile Endpoints (legacy combined)
   if (path === "/api/profile" && method === "GET") {
     return json(serverProfile);
   }
@@ -277,6 +281,50 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       const body = await request.json();
       serverProfile = { ...serverProfile, ...body };
       return json(serverProfile);
+    } catch {
+      return json({ error: "Invalid JSON" }, 400);
+    }
+  }
+
+  // User Profile Endpoints (separate)
+  if ((path === "/api/user/profile" || path === "/api/v1/user/profile") && method === "GET") {
+    return json(serverProfile);
+  }
+
+  if ((path === "/api/user/profile" || path === "/api/v1/user/profile") && method === "PUT") {
+    try {
+      const body = await request.json();
+      serverProfile = { ...serverProfile, ...body };
+      return json(serverProfile);
+    } catch {
+      return json({ error: "Invalid JSON" }, 400);
+    }
+  }
+
+  // Company Profile Endpoints (separate) - return 404 if no company exists (don't auto-create)
+  if ((path === "/api/company/profile" || path === "/api/v1/company/profile") && method === "GET") {
+    // Return 404 so the frontend treats company as not-yet-set-up
+    return json({ message: "Company profile not found" }, 404);
+  }
+
+  if ((path === "/api/company/profile" || path === "/api/v1/company/profile") && (method === "PUT" || method === "POST")) {
+    try {
+      const body = await request.json();
+      const companyData = {
+        id: `company-mock-${Date.now()}`,
+        name: body.name || "",
+        logoUrl: body.logoUrl || "",
+        website: body.website || "",
+        industry: body.industry || "",
+        size: body.size || "",
+        address: body.address || "",
+        city: body.city || "",
+        country: body.country || "India",
+        about: body.about || "",
+        isVerified: false,
+        isActive: true,
+      };
+      return json(companyData);
     } catch {
       return json({ error: "Invalid JSON" }, 400);
     }

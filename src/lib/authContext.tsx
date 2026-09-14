@@ -33,60 +33,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Helper to save/sync recruiter profile with backend database
   const syncProfileWithBackend = async (idToken: string, baseUser: User): Promise<User> => {
     try {
-      // First, try to save the user profile to the database
-      const saveRes = await apiRequest("/api/v1/recruiter/profile", {
-        method: "POST",
-        body: JSON.stringify({
-          name: baseUser.name || baseUser.email?.split("@")[0] || "Recruiter",
-          email: baseUser.email || "",
-          phone: null,
-          avatarUrl: baseUser.avatarUrl || null,
-          designation: "Technical Recruiter",
-          location: "India",
-          bio: null,
-          company: null,
-          role: "recruiter"
-        })
-      });
+      // First try to GET the existing profile — do NOT overwrite saved data on re-login
+      const getRes = await apiRequest("/api/user/profile");
 
-      if (saveRes.ok) {
-        const savedProfile = await saveRes.json();
+      if (getRes.ok) {
+        // Profile exists — just load it and update the local session
+        const profile = await getRes.json();
         const syncedUser: User = {
-          id: savedProfile.uid || baseUser.id,
-          uid: savedProfile.uid || baseUser.id,
-          name: savedProfile.name || savedProfile.fullName || baseUser.name,
-          email: savedProfile.email || baseUser.email,
-          avatarUrl: savedProfile.avatarUrl || baseUser.avatarUrl,
-          role: savedProfile.role || "recruiter",
-          company: savedProfile.company || savedProfile.designation || "Finder Partner",
-          designation: savedProfile.designation || "Technical Recruiter",
-          location: savedProfile.location || "India",
+          id: profile.uid || baseUser.id,
+          uid: profile.uid || baseUser.id,
+          name: profile.name || profile.fullName || baseUser.name,
+          email: profile.email || baseUser.email,
+          avatarUrl: profile.avatarUrl || baseUser.avatarUrl,
+          role: profile.role || "recruiter",
+          company: profile.company || baseUser.company || "",
+          designation: profile.designation || baseUser.designation || "",
+          location: profile.location || baseUser.location || "",
         };
         setAuthData(idToken, syncedUser);
         setUser(syncedUser);
         return syncedUser;
-      } else {
-        console.warn(`Backend profile save returned HTTP ${saveRes.status}`);
-        // Fallback: try to fetch existing profile
-        const profileRes = await apiRequest("/api/v1/recruiter/profile");
-        if (profileRes.ok) {
-          const profile = await profileRes.json();
+      }
+
+      if (getRes.status === 404) {
+        // Profile does not exist yet — create it with only the minimal Firebase data.
+        // Do NOT send hardcoded defaults for bio/designation/location so future edits are preserved.
+        const createRes = await apiRequest("/api/v1/recruiter/profile", {
+          method: "POST",
+          body: JSON.stringify({
+            name: baseUser.name || baseUser.email?.split("@")[0] || "Recruiter",
+            email: baseUser.email || "",
+            avatarUrl: baseUser.avatarUrl || null,
+            role: "recruiter",
+          }),
+        });
+
+        if (createRes.ok) {
+          const savedProfile = await createRes.json();
           const syncedUser: User = {
-            id: profile.uid || baseUser.id,
-            uid: profile.uid || baseUser.id,
-            name: profile.name || profile.fullName || baseUser.name,
-            email: profile.email || baseUser.email,
-            avatarUrl: profile.avatarUrl || baseUser.avatarUrl,
-            role: profile.role || "recruiter",
-            company: profile.company || profile.designation || "Finder Partner",
-            designation: profile.designation || "Technical Recruiter",
-            location: profile.location || "India",
+            id: savedProfile.uid || baseUser.id,
+            uid: savedProfile.uid || baseUser.id,
+            name: savedProfile.name || savedProfile.fullName || baseUser.name,
+            email: savedProfile.email || baseUser.email,
+            avatarUrl: savedProfile.avatarUrl || baseUser.avatarUrl,
+            role: savedProfile.role || "recruiter",
+            company: "",
+            designation: "",
+            location: "",
           };
           setAuthData(idToken, syncedUser);
           setUser(syncedUser);
           return syncedUser;
         }
       }
+
+      console.warn(`Backend profile sync returned HTTP ${getRes.status}`);
     } catch (e) {
       console.error("Backend profile sync error:", e);
     }
