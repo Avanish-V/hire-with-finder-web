@@ -272,7 +272,7 @@ function PostJobScreen({
       setCheckingCompany(true);
       try {
         const token = getAuthToken();
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8081'}/api/company/profile`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://bmo6sd3nhbgp4akoqmgoamd3ja0cmyyn.lambda-url.ap-south-1.on.aws/'}/api/company/profile`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

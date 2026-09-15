@@ -288,7 +288,7 @@ function mapFinderProfile(data: Record<string, unknown>, applicant: Applicant): 
   };
 }
 
-const _CANDIDATE_API_BASE = (import.meta.env.VITE_CANDIDATE_API_URL as string || "http://localhost:8080").replace(/\/$/, "");
+const _CANDIDATE_API_BASE = (import.meta.env.VITE_CANDIDATE_API_URL as string || "https://iv52bugou5xppexnhffgj53hwq0rorrh.lambda-url.ap-south-1.on.aws").replace(/\/$/, "");
 const PROFILE_BASE_URL = `${_CANDIDATE_API_BASE}/api/v1/users/view`;
 
 /**

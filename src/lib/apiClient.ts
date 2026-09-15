@@ -1,7 +1,7 @@
 import { supabase } from "./supabaseClient";
 import { auth } from "./firebaseClient";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+const API_URL = import.meta.env.VITE_API_URL || "https://bmo6sd3nhbgp4akoqmgoamd3ja0cmyyn.lambda-url.ap-south-1.on.aws/";
 
 export interface User {
   id?: string;
