@@ -18,18 +18,16 @@ import {
   Search,
   Loader2,
   Layers,
-  Sparkles,
   CheckCircle2,
-  BookOpen,
   AlertCircle,
-  Tag,
-  GraduationCap,
   Eye,
   Check,
-  HelpCircle,
-  Info,
-  ExternalLink,
   ShieldCheck,
+  UserCircle2,
+  GraduationCap,
+  UserPlus,
+  BookOpen,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
@@ -50,6 +48,12 @@ import { FullScreenComposer, FormSection } from "@/components/FullScreenComposer
 import { PeopleList, peopleFor } from "@/components/PeopleList";
 
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -57,11 +61,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  defaultModules,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   type LiveSession,
+  type Applicant,
   type SessionModule,
   type SessionSubModule,
-  type Applicant,
 } from "@/lib/finder-data";
 import { uploadToS3 } from "@/services/mediaService";
 import {
@@ -72,6 +83,14 @@ import {
   getSessionDetails,
   toggleSessionJoinLink,
 } from "@/services/sessionsService";
+import {
+  type Instructor,
+  DEFAULT_INSTRUCTORS,
+  getInstructors,
+  createInstructor,
+  updateInstructor,
+  deleteInstructor,
+} from "@/services/instructorService";
 
 export const Route = createFileRoute("/sessions")({
   head: () => ({
@@ -168,9 +187,24 @@ function SessionCard({
 
       <div className="p-5">
         <h3 className="line-clamp-1 text-lg font-semibold">{s.title}</h3>
-        <p className="text-sm text-muted-foreground">
-          {s.host} · {s.level}
-        </p>
+        <div className="mt-1.5 flex items-center gap-2">
+          {s.instructor?.imageUrl ? (
+            <img
+              src={s.instructor.imageUrl}
+              alt={s.instructor.name || s.host}
+              className="size-4.5 rounded-full object-cover border border-border shrink-0"
+            />
+          ) : (
+            <div className="grid size-4.5 place-items-center rounded-full bg-primary/15 text-[9px] font-bold text-primary shrink-0">
+              {(s.instructor?.name || s.host).slice(0, 1).toUpperCase()}
+            </div>
+          )}
+          <span className="text-sm text-muted-foreground truncate font-medium">
+            {s.instructor?.name || s.host}
+          </span>
+          <span className="text-muted-foreground/40 text-xs">•</span>
+          <span className="text-xs text-muted-foreground shrink-0">{s.level}</span>
+        </div>
 
         <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
@@ -267,12 +301,14 @@ function SessionCard({
 
 function FullScreenSession({
   s,
+  instructors,
   onClose,
   onEdit,
   onDelete,
   onToggleJoinLink,
 }: {
   s: LiveSession;
+  instructors?: Instructor[];
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -285,14 +321,36 @@ function FullScreenSession({
     modules: s.modules ?? null,
     students: peopleFor(s.title, "Session"),
   });
+  const [loadingDetails, setLoadingDetails] = useState(true);
+
+  // Resolve instructor details from session.instructor or from instructors roster
+  const resolvedInstructor =
+    s.instructor ||
+    instructors?.find(
+      (i) =>
+        (s.instructorId && i.id === s.instructorId) ||
+        i.name.toLowerCase() === s.host.toLowerCase()
+    ) ||
+    null;
+
+  const instructorName = resolvedInstructor?.name || s.host || "Finder Careers";
+  const instructorBio = resolvedInstructor?.bio || "";
+  const instructorImage = resolvedInstructor?.imageUrl || null;
+  const isDefaultHost = instructorName === "Finder Careers" && !resolvedInstructor?.bio;
 
   useEffect(() => {
     let isMounted = true;
-    getSessionDetails(s.id, s.title, s.modules ?? null).then((data) => {
-      if (isMounted) {
-        setDetails(data);
-      }
-    });
+    setLoadingDetails(true);
+    getSessionDetails(s.id, s.title, s.modules ?? null)
+      .then((data) => {
+        if (isMounted) {
+          setDetails(data);
+          setLoadingDetails(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setLoadingDetails(false);
+      });
     return () => {
       isMounted = false;
     };
@@ -381,10 +439,36 @@ function FullScreenSession({
             </div>
             <div className="p-5">
               <h1 className="text-2xl font-semibold md:text-3xl">{s.title}</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Hosted by {s.host} · {s.level} · {s.duration}
-              </p>
-              <p className="mt-3 text-sm text-muted-foreground">
+              
+              {/* Instructor badge & session metadata */}
+              <div className="mt-3 flex flex-wrap items-center gap-2.5">
+                <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-secondary/50 py-1 pl-1.5 pr-3 text-xs text-foreground">
+                  {instructorImage ? (
+                    <img
+                      src={instructorImage}
+                      alt={instructorName}
+                      className="size-5 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="grid size-5 place-items-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
+                      {instructorName.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="font-medium">{instructorName}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                    • Instructor
+                  </span>
+                </div>
+
+                <Badge variant="outline" className="text-xs">
+                  {s.level}
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  <Clock className="size-3 mr-1 text-primary" /> {s.duration}
+                </Badge>
+              </div>
+
+              <p className="mt-3.5 text-sm text-muted-foreground leading-relaxed">
                 {s.summary ??
                   "A live, hands-on online session run on Google Meet. Join with the link below at the scheduled time."}
               </p>
@@ -476,25 +560,97 @@ function FullScreenSession({
               <div>
                 <h2 className="text-lg font-semibold">Enrolled students</h2>
                 <p className="text-sm text-muted-foreground">
-                  {s.enrolled} enrolled · {Math.max(0, s.seats - s.enrolled)} seats left
+                  {students.length} enrolled · {Math.max(0, s.seats - students.length)} seats left
                 </p>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => toast.success("Enrollee list exported (CSV)")}
+                onClick={() => {
+                  if (students.length === 0) {
+                    toast.info("No enrollees to export.");
+                    return;
+                  }
+                  const header = "Name,Email,Role,Enrolled Date\n";
+                  const rows = students
+                    .map((st) => `"${st.name}","${st.email}","${st.role}","${st.applied}"`)
+                    .join("\n");
+                  const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.setAttribute(
+                    "download",
+                    `${s.title.replace(/[^a-zA-Z0-9]/g, "_")}_enrollees.csv`
+                  );
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  toast.success("Enrollee list exported (CSV)");
+                }}
               >
                 Export
               </Button>
             </div>
-            <PeopleList
-              people={students}
-              emptyLabel="No enrollments yet for this session."
-            />
+
+            {loadingDetails ? (
+              <div className="flex items-center justify-center py-10 text-sm text-muted-foreground gap-2">
+                <Loader2 className="size-4 animate-spin text-primary" />
+                <span>Loading enrolled students...</span>
+              </div>
+            ) : (
+              <PeopleList
+                people={students}
+                emptyLabel="No enrollments yet for this session."
+              />
+            )}
           </section>
         </div>
 
         <aside className="space-y-4">
+          {/* Instructor Details Card */}
+          <div className="panel p-5">
+            <div className="flex items-center justify-between">
+              <p className="text-eyebrow">Instructor Details</p>
+              <Badge variant="outline" className="gap-1 text-[11px] font-medium border-primary/30 text-primary bg-primary/5">
+                <GraduationCap className="size-3" /> Instructor
+              </Badge>
+            </div>
+
+            <div className="mt-4 flex items-start gap-3.5">
+              {instructorImage ? (
+                <img
+                  src={instructorImage}
+                  alt={instructorName}
+                  className="size-14 rounded-xl object-cover border border-border shadow-xs shrink-0"
+                />
+              ) : (
+                <div className="grid size-14 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary/20 via-primary/10 to-secondary text-primary font-bold text-lg border border-primary/25">
+                  {instructorName.slice(0, 2).toUpperCase()}
+                </div>
+              )}
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h4 className="font-semibold text-foreground text-sm truncate">{instructorName}</h4>
+                  <ShieldCheck className="size-3.5 text-primary shrink-0" />
+                </div>
+                <p className="text-[11px] text-primary font-medium mt-0.5">Session Host & Lead Instructor</p>
+                {instructorBio ? (
+                  <p className="mt-2 text-xs text-muted-foreground leading-relaxed line-clamp-4">
+                    {instructorBio}
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs italic text-muted-foreground">
+                    {isDefaultHost
+                      ? "Teaching team at Finder Careers providing live technical mentorship."
+                      : "Lead instructor guiding students in this live interactive session."}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="panel p-5">
             <p className="text-eyebrow">Session details</p>
             <div className="mt-4 space-y-3 text-sm text-muted-foreground">
@@ -581,7 +737,6 @@ function FullScreenSession({
 }
 
 // Helper presets & constants for clean session/course creation
-const DURATION_INTEGER_PRESETS = [30, 45, 60, 90, 120];
 const SEAT_PRESETS = [25, 50, 100, 250, 500];
 
 function parseDateToInputFormat(dateStr?: string): string {
@@ -662,11 +817,13 @@ function NewSessionScreen({
   onClose,
   onSubmit,
   onDelete,
+  instructors,
 }: {
   session?: LiveSession;
   onClose: () => void;
   onSubmit: (data: Partial<LiveSession>) => void;
   onDelete?: () => void;
+  instructors: Instructor[];
 }) {
   const editing = Boolean(session);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -705,20 +862,45 @@ function NewSessionScreen({
   const [date, setDate] = useState(() => parseDateToInputFormat(session?.date) || getTodayString());
   const [time, setTime] = useState(() => (session?.time ? formatTimeTo24Hour(session.time) : "19:00"));
   
-  // Duration as integer minutes only
-  const [durationMinutes, setDurationMinutes] = useState<string>(() => {
-    if (session?.duration) {
-      const match = session.duration.match(/\d+/);
-      return match ? match[0] : "60";
+  const [endTime, setEndTime] = useState<string>(() => {
+    // Default end time: 1 hour after start time
+    if (session?.time) {
+      const t24 = formatTimeTo24Hour(session.time);
+      if (t24) {
+        const [h, m] = t24.split(":").map(Number);
+        const endH = (h + 1) % 24;
+        return `${String(endH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      }
     }
-    return "60";
+    return "20:00";
   });
 
-  const [level, setLevel] = useState<LiveSession["level"]>(session?.level ?? "Beginner");
+  const level = session?.level ?? "Beginner";
   const [seats, setSeats] = useState<string>(session?.seats ? String(session.seats) : "100");
   const [meetLink, setMeetLink] = useState(session?.meetLink ?? "");
   const [isJoinLinkEnabled, setIsJoinLinkEnabled] = useState<boolean>(session?.isJoinLinkEnabled !== false);
   const [summary, setSummary] = useState(session?.summary ?? "");
+
+  // Instructor Selection State
+  const [selectedInstructorId, setSelectedInstructorId] = useState<string>(() => {
+    if (session?.instructor?.id) {
+      const match = instructors.find((i) => i.id === session.instructor?.id);
+      if (match) return match.id;
+    }
+    if (session?.instructorId && session.instructorId !== "default-instructor") {
+      const match = instructors.find((i) => i.id === session.instructorId);
+      if (match) return match.id;
+    }
+    if (session?.host) {
+      const match = instructors.find(
+        (i) => i.name.toLowerCase() === session.host.toLowerCase()
+      );
+      if (match) return match.id;
+      if (session.host === "Finder Careers") return "__none__";
+    }
+    return "__none__";
+  });
+  const selectedInstructor = instructors.find((i) => i.id === selectedInstructorId);
 
   // Format initial modules: ONLY heading and topics (Optional - may be null or empty)
   const [modules, setModules] = useState<
@@ -769,9 +951,10 @@ function NewSessionScreen({
       errs.time = "Please set a start time.";
     }
 
-    const durationNum = parseInt(durationMinutes, 10);
-    if (!durationMinutes || isNaN(durationNum) || durationNum < 1) {
-      errs.duration = "Duration must be an integer (e.g. 60 for 60 minutes).";
+    if (!endTime) {
+      errs.endTime = "Please set an end time.";
+    } else if (endTime <= time) {
+      errs.endTime = "End time must be after the start time.";
     }
 
     const seatsNum = parseInt(seats, 10);
@@ -811,7 +994,7 @@ function NewSessionScreen({
       const currentErrs = validate();
       setErrors(currentErrs);
     }
-  }, [title, date, time, durationMinutes, seats, meetLink, modules]);
+  }, [title, date, time, endTime, seats, meetLink]);
 
   // Heading & Topic handlers
   const handleAddHeading = () => {
@@ -878,10 +1061,9 @@ function NewSessionScreen({
       title: true,
       date: true,
       time: true,
-      duration: true,
+      endTime: true,
       seats: true,
       meetLink: true,
-      modules: true,
     });
 
     if (Object.keys(errs).length > 0) {
@@ -895,10 +1077,9 @@ function NewSessionScreen({
         title: "s-title",
         date: "s-date",
         time: "s-time",
-        duration: "s-duration",
+        endTime: "s-end-time",
         seats: "s-seats",
         meetLink: "s-url",
-        modules: "s-curriculum-section",
       };
       const targetId = elementIdMap[firstKey];
       if (targetId) {
@@ -909,34 +1090,31 @@ function NewSessionScreen({
       return;
     }
 
-    const cleanedModules = modules
-      .filter((m) => m.heading.trim().length > 0)
-      .map((m, idx) => {
-        const cleanedTopics = m.topics.map((t) => t.trim()).filter((t) => t.length > 0);
-        return {
-          heading: m.heading.trim(),
-          title: m.heading.trim(),
-          description: "",
-          order: idx,
-          topics: cleanedTopics,
-          subModules: cleanedTopics.map((topic, tIdx) => ({
-            title: topic,
-            description: "",
-            order: tIdx,
-          })),
-        };
-      });
-
     const formattedTime = formatTimeTo12Hour(time);
+    const formattedEndTime = formatTimeTo12Hour(endTime);
     const formattedDate = formatDateForDisplay(date);
-    const formattedDuration = `${parseInt(durationMinutes, 10)} min`;
+
+    const chosenInstructor = instructors.find((i) => i.id === selectedInstructorId);
+    const instructorObj = chosenInstructor
+      ? {
+          id: chosenInstructor.id,
+          name: chosenInstructor.name,
+          bio: chosenInstructor.bio,
+          imageUrl: chosenInstructor.imageUrl,
+        }
+      : selectedInstructorId === "__none__"
+      ? null
+      : session?.instructor || null;
 
     onSubmit({
       title: title.trim(),
-      host: session?.host || "Finder Careers",
+      host: chosenInstructor?.name || (selectedInstructorId === "__none__" ? "Finder Careers" : (session?.host || "Finder Careers")),
+      instructorId: selectedInstructorId !== "__none__" ? selectedInstructorId : (session?.instructorId || "default-instructor"),
+      instructor: instructorObj,
       date: formattedDate,
       time: formattedTime,
-      duration: formattedDuration,
+      endTime: formattedEndTime,
+      duration: `${formattedTime} – ${formattedEndTime}`,
       seats: parseInt(seats, 10),
       price: session?.price || "Free",
       level,
@@ -945,22 +1123,18 @@ function NewSessionScreen({
       summary: summary.trim(),
       tags: session?.tags && session.tags.length > 0 ? session.tags : ["Live Session"],
       thumbnail: thumb || undefined,
-      modules: cleanedModules.length > 0 ? cleanedModules : null,
+      modules: null,
     });
 
     onClose();
     toast.success(editing ? "Skill course updated" : "Skill course published", {
       description: editing
-        ? "Enrollees will see updated schedule, live link, and syllabus details."
+        ? "Enrollees will see updated schedule and live link."
         : "Schedule and Meet link are live on Finder.",
     });
   };
 
   const detectedPlatform = detectMeetingPlatform(meetLink);
-  const totalTopicsCount = modules.reduce(
-    (acc, m) => acc + m.topics.filter((t) => t.trim().length > 0).length,
-    0
-  );
 
   return (
     <FullScreenComposer
@@ -979,10 +1153,10 @@ function NewSessionScreen({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Form Configuration */}
         <div className="lg:col-span-7 xl:col-span-8 space-y-6">
-          {/* Section 1: Course Title & Level */}
+          {/* Section 1: Course Information & Instructor */}
           <FormSection
             title="Course Information"
-            hint="Set the primary title and target learner experience level."
+            hint="Set the course title and assign an instructor for this live skill session."
           >
             <div className="space-y-4">
               {/* Course Title */}
@@ -1018,19 +1192,94 @@ function NewSessionScreen({
                 )}
               </div>
 
-              {/* Difficulty Level */}
-              <div className="grid gap-1.5 max-w-sm">
-                <Label htmlFor="s-level" className="text-sm font-medium">Difficulty Level</Label>
-                <Select defaultValue={level} onValueChange={(v) => setLevel(v as LiveSession["level"])}>
-                  <SelectTrigger id="s-level">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Beginner">Beginner</SelectItem>
-                    <SelectItem value="Intermediate">Intermediate</SelectItem>
-                    <SelectItem value="Advanced">Advanced</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* Instructor Selector */}
+              <div className="grid gap-1.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="s-instructor" className="text-sm font-medium flex items-center gap-1.5">
+                    <GraduationCap className="size-4 text-primary" />
+                    <span>Instructor</span>
+                    <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+                  </Label>
+                  {selectedInstructor && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <CheckCircle2 className="size-3 text-emerald-500" />
+                      Assigned
+                    </span>
+                  )}
+                </div>
+
+                {instructors.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border bg-secondary/30 px-3.5 py-2.5 text-xs text-muted-foreground flex items-center gap-2.5">
+                    <UserCircle2 className="size-4 text-muted-foreground/60 shrink-0" />
+                    <span>
+                      No instructors added yet. You can add instructors in the <strong>Instructors</strong> tab, or use the default host (Finder Careers).
+                    </span>
+                  </div>
+                ) : (
+                  <Select
+                    value={selectedInstructorId}
+                    onValueChange={(val) => setSelectedInstructorId(val)}
+                  >
+                    <SelectTrigger id="s-instructor" className="w-full">
+                      <SelectValue placeholder="Select an instructor (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">
+                        <div className="flex items-center gap-2">
+                          <span className="size-5 rounded-full bg-secondary grid place-items-center text-[10px] font-semibold text-muted-foreground">
+                            FC
+                          </span>
+                          <span>Finder Careers (Default)</span>
+                        </div>
+                      </SelectItem>
+                      {instructors.map((instr) => (
+                        <SelectItem key={instr.id} value={instr.id}>
+                          <div className="flex items-center gap-2">
+                            {instr.imageUrl ? (
+                              <img
+                                src={instr.imageUrl}
+                                alt={instr.name}
+                                className="size-5 rounded-full object-cover shrink-0"
+                              />
+                            ) : (
+                              <span className="size-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
+                                {instr.name.slice(0, 1).toUpperCase()}
+                              </span>
+                            )}
+                            <span className="font-medium">{instr.name}</span>
+                            {instr.bio && (
+                              <span className="text-xs text-muted-foreground truncate max-w-[200px] hidden sm:inline">
+                                — {instr.bio}
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {selectedInstructor && (
+                  <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-secondary/30 p-2.5 mt-1 animate-in fade-in">
+                    {selectedInstructor.imageUrl ? (
+                      <img
+                        src={selectedInstructor.imageUrl}
+                        alt={selectedInstructor.name}
+                        className="size-9 rounded-full object-cover border border-border shrink-0"
+                      />
+                    ) : (
+                      <span className="size-9 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center border border-primary/20 shrink-0">
+                        {selectedInstructor.name.slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-foreground truncate">{selectedInstructor.name}</p>
+                      {selectedInstructor.bio && (
+                        <p className="text-[11px] text-muted-foreground truncate">{selectedInstructor.bio}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </FormSection>
@@ -1136,10 +1385,10 @@ function NewSessionScreen({
             </div>
           </FormSection>
 
-          {/* Section 3: Schedule, Duration & Capacity */}
+          {/* Section 3: Schedule & Capacity */}
           <FormSection
             title="Schedule & Capacity"
-            hint="Set when the live session runs, duration in minutes, and total student capacity."
+            hint="Set when the live session runs and the total student capacity."
           >
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Date */}
@@ -1202,52 +1451,33 @@ function NewSessionScreen({
                 ) : null}
               </div>
 
-              {/* Duration: ONLY Integer Minutes */}
+              {/* End Time */}
               <div className="grid gap-1.5">
-                <Label htmlFor="s-duration" className="text-sm font-medium flex items-center gap-1.5">
-                  Duration (minutes) <span className="text-destructive">*</span>
+                <Label htmlFor="s-end-time" className="text-sm font-medium flex items-center gap-1.5">
+                  <Clock className="size-3.5 text-primary" />
+                  End Time (IST) <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                  id="s-duration"
-                  type="number"
-                  min="1"
-                  step="1"
-                  placeholder="e.g. 60"
-                  value={durationMinutes}
+                  id="s-end-time"
+                  type="time"
+                  value={endTime}
                   onChange={(e) => {
-                    // Filter to only integer digits
-                    const val = e.target.value.replace(/\D/g, "");
-                    setDurationMinutes(val);
-                    if (errors.duration) setErrors((prev) => ({ ...prev, duration: "" }));
+                    setEndTime(e.target.value);
+                    if (errors.endTime) setErrors((prev) => ({ ...prev, endTime: "" }));
                   }}
-                  onBlur={() => markTouched("duration")}
-                  className={touched.duration && errors.duration ? "border-destructive focus-visible:ring-destructive" : ""}
+                  onBlur={() => markTouched("endTime")}
+                  className={touched.endTime && errors.endTime ? "border-destructive focus-visible:ring-destructive" : ""}
                 />
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {DURATION_INTEGER_PRESETS.map((mins) => (
-                    <button
-                      key={mins}
-                      type="button"
-                      onClick={() => {
-                        setDurationMinutes(String(mins));
-                        if (errors.duration) setErrors((prev) => ({ ...prev, duration: "" }));
-                      }}
-                      className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                        durationMinutes === String(mins)
-                          ? "bg-primary text-primary-foreground border-primary font-medium"
-                          : "bg-secondary/50 text-muted-foreground hover:bg-secondary border-border"
-                      }`}
-                    >
-                      {mins} mins
-                    </button>
-                  ))}
-                </div>
-                {touched.duration && errors.duration && (
+                {touched.endTime && errors.endTime ? (
                   <p className="text-xs font-medium text-destructive flex items-center gap-1 mt-0.5 animate-in fade-in">
                     <AlertCircle className="size-3.5 shrink-0" />
-                    <span>{errors.duration}</span>
+                    <span>{errors.endTime}</span>
                   </p>
-                )}
+                ) : endTime ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Formatted: <strong className="text-foreground">{formatTimeTo12Hour(endTime)}</strong>
+                  </p>
+                ) : null}
               </div>
 
               {/* Total Seats with presets */}
@@ -1367,11 +1597,8 @@ function NewSessionScreen({
             </div>
           </FormSection>
 
-          {/* Section 5: Curriculum - Headings & Topics (Optional) */}
-          <FormSection
-            title="Course Curriculum (Optional)"
-            hint="Optional: Add headings and covered topics under each heading, or leave blank."
-          >
+          {/* Section 5: Course Description (was Section 6) */}
+          {false && (
             <div className="space-y-4" id="s-curriculum-section">
               {touched.modules && errors.modules && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs font-medium text-destructive flex items-center gap-2 animate-in fade-in">
@@ -1519,9 +1746,9 @@ function NewSessionScreen({
                 </div>
               )}
             </div>
-          </FormSection>
+          )}
 
-          {/* Section 6: Course Description */}
+          {/* Section 5: Course Description */}
           <FormSection
             title="Course Description"
             hint="Provide context, syllabus overview, or prerequisites for students."
@@ -1615,19 +1842,11 @@ function NewSessionScreen({
                   )}
                 </div>
 
-                {modules.filter((m) => m.heading.trim()).length > 0 && (
-                  <div className="absolute bottom-2 right-2 rounded-md bg-background/90 px-2 py-0.5 text-[10px] font-medium text-foreground backdrop-blur-xs">
-                    {modules.filter((m) => m.heading.trim()).length} Headings · {totalTopicsCount} Topics
-                  </div>
-                )}
               </div>
 
               {/* Card Details */}
               <div className="p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <Badge variant="outline" className="text-[11px]">
-                    {level}
-                  </Badge>
                   <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                     Free
                   </span>
@@ -1637,6 +1856,13 @@ function NewSessionScreen({
                   {title.trim() || "Your Course Title Will Appear Here"}
                 </h4>
 
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <GraduationCap className="size-3.5 text-primary shrink-0" />
+                  <span className="truncate font-medium text-foreground">
+                    {selectedInstructor?.name || (selectedInstructorId === "__none__" ? "Finder Careers" : (session?.host || "Finder Careers"))}
+                  </span>
+                </div>
+
                 <div className="space-y-1.5 text-xs text-muted-foreground">
                   <p className="flex items-center gap-2">
                     <Calendar className="size-3.5 text-primary shrink-0" />
@@ -1644,7 +1870,7 @@ function NewSessionScreen({
                   </p>
                   <p className="flex items-center gap-2">
                     <Clock className="size-3.5 text-primary shrink-0" />
-                    <span>{durationMinutes ? `${durationMinutes} min` : "60 min"}</span>
+                    <span>{time && endTime ? `${formatTimeTo12Hour(time)} – ${formatTimeTo12Hour(endTime)}` : "Set start & end time"}</span>
                   </p>
                   <p className="flex items-center gap-2">
                     <Users className="size-3.5 text-primary shrink-0" />
@@ -1695,21 +1921,13 @@ function NewSessionScreen({
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <CheckCircle2
-                    className={`size-3 ${
-                      modules.some((m) => m.heading.trim().length > 0)
-                        ? "text-emerald-500"
-                        : "text-muted-foreground/60"
-                    }`}
-                  />
-                  <span
-                    className={
-                      modules.some((m) => m.heading.trim().length > 0)
-                        ? "text-foreground"
-                        : "text-muted-foreground"
-                    }
-                  >
-                    Curriculum ({modules.some((m) => m.heading.trim().length > 0) ? `${modules.filter((m) => m.heading.trim()).length} headings` : "Optional"})
+                  {endTime && endTime > time ? (
+                    <CheckCircle2 className="size-3 text-emerald-500" />
+                  ) : (
+                    <AlertCircle className="size-3 text-muted-foreground" />
+                  )}
+                  <span className={endTime && endTime > time ? "text-foreground" : "text-muted-foreground"}>
+                    End time set
                   </span>
                 </div>
               </div>
@@ -1721,27 +1939,512 @@ function NewSessionScreen({
   );
 }
 
+// ─── Instructor Form Modal ───────────────────────────────────────────────────
+function InstructorFormModal({
+  instructor,
+  open,
+  onClose,
+  onSave,
+}: {
+  instructor?: Instructor | null;
+  open: boolean;
+  onClose: () => void;
+  onSave: (data: Omit<Instructor, "id">) => void;
+}) {
+  const editing = Boolean(instructor);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [name, setName] = useState(instructor?.name ?? "");
+  const [bio, setBio] = useState(instructor?.bio ?? "");
+  const [imageUrl, setImageUrl] = useState<string | null>(instructor?.imageUrl ?? null);
+  const [uploading, setUploading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Reset form when modal opens/instructor changes
+  useEffect(() => {
+    if (open) {
+      setName(instructor?.name ?? "");
+      setBio(instructor?.bio ?? "");
+      setImageUrl(instructor?.imageUrl ?? null);
+      setErrors({});
+    }
+  }, [open, instructor]);
+
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!name.trim() || name.trim().length < 2)
+      errs.name = "Instructor name must be at least 2 characters.";
+    if (name.trim().length > 80)
+      errs.name = "Name must not exceed 80 characters.";
+    if (bio.trim().length > 600)
+      errs.bio = "Bio must not exceed 600 characters.";
+    return errs;
+  };
+
+  const handleSave = () => {
+    const errs = validate();
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+    onSave({ name: name.trim(), bio: bio.trim(), imageUrl });
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <GraduationCap className="size-5 text-primary" />
+            {editing ? "Update Instructor" : "Add Instructor"}
+          </DialogTitle>
+          <DialogDescription>
+            {editing
+              ? "Edit instructor details — changes will be reflected on all linked sessions."
+              : "Add a new instructor profile to assign to live skill sessions."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5 py-2">
+          {/* Avatar Upload */}
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="relative size-20 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-border bg-secondary/40 transition-all hover:border-primary/50 hover:bg-secondary/60"
+            >
+              {imageUrl ? (
+                <img
+                  src={imageUrl}
+                  alt="Instructor avatar"
+                  className="size-full object-cover"
+                />
+              ) : uploading ? (
+                <Loader2 className="size-6 animate-spin text-primary m-auto" />
+              ) : (
+                <UserCircle2 className="size-10 text-muted-foreground/40 m-auto" />
+              )}
+              {!uploading && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/30 opacity-0 transition-opacity hover:opacity-100">
+                  <ImagePlus className="size-5 text-white" />
+                </div>
+              )}
+            </button>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Profile Photo</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Click the circle to upload. PNG / JPG / WebP up to 5MB.
+              </p>
+              {imageUrl && !uploading && (
+                <button
+                  type="button"
+                  onClick={() => setImageUrl(null)}
+                  className="mt-1.5 text-xs text-destructive hover:underline flex items-center gap-1"
+                >
+                  <Trash2 className="size-3" /> Remove photo
+                </button>
+              )}
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png, image/jpeg, image/webp"
+              className="hidden"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                if (f.size > 5 * 1024 * 1024) {
+                  toast.error("File exceeds 5MB limit.");
+                  return;
+                }
+                setUploading(true);
+                const preview = URL.createObjectURL(f);
+                setImageUrl(preview);
+                try {
+                  const s3Url = await uploadToS3(f, "instructors/avatars");
+                  setImageUrl(s3Url);
+                  toast.success("Photo uploaded successfully.");
+                } catch {
+                  toast.error("Upload failed. Keeping local preview.");
+                } finally {
+                  setUploading(false);
+                  URL.revokeObjectURL(preview);
+                }
+              }}
+            />
+          </div>
+
+          {/* Name */}
+          <div className="grid gap-1.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="instr-name" className="text-sm font-medium">
+                Full Name <span className="text-destructive">*</span>
+              </Label>
+              <span className={`text-[11px] ${name.length > 80 ? "text-destructive" : "text-muted-foreground"}`}>
+                {name.length}/80
+              </span>
+            </div>
+            <Input
+              id="instr-name"
+              placeholder="e.g. Dr. Priya Sharma"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (errors.name) setErrors((p) => ({ ...p, name: "" }));
+              }}
+              className={errors.name ? "border-destructive focus-visible:ring-destructive" : ""}
+            />
+            {errors.name && (
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertCircle className="size-3.5 shrink-0" /> {errors.name}
+              </p>
+            )}
+          </div>
+
+          {/* Bio */}
+          <div className="grid gap-1.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="instr-bio" className="text-sm font-medium">
+                Bio / About
+              </Label>
+              <span className={`text-[11px] ${bio.length > 600 ? "text-destructive" : "text-muted-foreground"}`}>
+                {bio.length}/600
+              </span>
+            </div>
+            <Textarea
+              id="instr-bio"
+              rows={4}
+              placeholder="Short bio — expertise, background, achievements…"
+              value={bio}
+              onChange={(e) => {
+                setBio(e.target.value);
+                if (errors.bio) setErrors((p) => ({ ...p, bio: "" }));
+              }}
+              className={errors.bio ? "border-destructive focus-visible:ring-destructive" : ""}
+            />
+            {errors.bio && (
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertCircle className="size-3.5 shrink-0" /> {errors.bio}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={uploading} className="gap-1.5">
+            {uploading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : editing ? (
+              <Pencil className="size-4" />
+            ) : (
+              <Plus className="size-4" />
+            )}
+            {editing ? "Save changes" : "Add instructor"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Instructor Card ─────────────────────────────────────────────────────────
+function InstructorCard({
+  instructor,
+  onEdit,
+  onDelete,
+}: {
+  instructor: Instructor;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <article className="panel p-5 flex flex-col gap-4 transition-all duration-200 hover:border-primary/30 hover:shadow-md group">
+      <div className="flex items-start gap-4">
+        {/* Avatar */}
+        <div className="size-16 shrink-0 overflow-hidden rounded-full border-2 border-border bg-gradient-to-br from-primary/20 via-secondary to-chart-4/20 flex items-center justify-center">
+          {instructor.imageUrl ? (
+            <img
+              src={instructor.imageUrl}
+              alt={instructor.name}
+              className="size-full object-cover"
+            />
+          ) : (
+            <span className="text-2xl font-bold text-primary/60 select-none">
+              {instructor.name.slice(0, 1).toUpperCase()}
+            </span>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-base leading-tight line-clamp-1">{instructor.name}</h3>
+          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+            <GraduationCap className="size-3.5 text-primary shrink-0" /> Instructor
+          </p>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 opacity-0 group-hover:opacity-100 transition-opacity"
+              aria-label="Instructor actions"
+            >
+              <MoreHorizontal className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={onEdit} className="gap-2">
+              <Pencil className="size-3.5" /> Edit instructor
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={onDelete}
+              className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
+            >
+              <Trash2 className="size-3.5" /> Delete instructor
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {instructor.bio ? (
+        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
+          {instructor.bio}
+        </p>
+      ) : (
+        <p className="text-xs italic text-muted-foreground/60">No bio added yet.</p>
+      )}
+
+      <div className="flex gap-2 mt-auto pt-2 border-t border-border/50">
+        <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={onEdit}>
+          <Pencil className="size-3.5" /> Edit
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive gap-1.5"
+          onClick={onDelete}
+        >
+          <Trash2 className="size-3.5" /> Delete
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+// ─── Instructors Tab ─────────────────────────────────────────────────────────
+function InstructorsTab({
+  instructors,
+  setInstructors,
+}: {
+  instructors: Instructor[];
+  setInstructors: React.Dispatch<React.SetStateAction<Instructor[]>>;
+}) {
+  const [search, setSearch] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Instructor | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Instructor | null>(null);
+
+  const filtered = instructors.filter(
+    (i) =>
+      i.name.toLowerCase().includes(search.toLowerCase()) ||
+      i.bio.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleAdd = async (data: Omit<Instructor, "id">) => {
+    try {
+      const created = await createInstructor(data);
+      setInstructors((prev) => [created, ...prev.filter((i) => i.id !== created.id)]);
+      toast.success("Instructor added", {
+        description: `${created.name} has been added to your instructor roster.`,
+      });
+    } catch (err) {
+      toast.error("Failed to add instructor", {
+        description: err instanceof Error ? err.message : "An unexpected error occurred.",
+      });
+    }
+  };
+
+  const handleUpdate = async (data: Omit<Instructor, "id">) => {
+    if (!editTarget) return;
+    try {
+      const updated = await updateInstructor(editTarget.id, data);
+      setInstructors((prev) =>
+        prev.map((i) => (i.id === editTarget.id ? updated : i))
+      );
+      toast.success("Instructor updated", {
+        description: `${updated.name}'s profile has been updated.`,
+      });
+      setEditTarget(null);
+    } catch (err) {
+      toast.error("Failed to update instructor", {
+        description: err instanceof Error ? err.message : "An unexpected error occurred.",
+      });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const instr = instructors.find((i) => i.id === id);
+    try {
+      await deleteInstructor(id);
+      setInstructors((prev) => prev.filter((i) => i.id !== id));
+      setDeleteTarget(null);
+      toast.success("Instructor removed", {
+        description: instr ? `${instr.name} has been removed.` : undefined,
+      });
+    } catch (err) {
+      toast.error("Failed to delete instructor", {
+        description: err instanceof Error ? err.message : "An unexpected error occurred.",
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Search instructors by name or bio…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Button
+          onClick={() => {
+            setEditTarget(null);
+            setModalOpen(true);
+          }}
+          className="gap-2 shadow-xs shrink-0"
+        >
+          <UserPlus className="size-4" />
+          Add instructor
+        </Button>
+      </div>
+
+      {/* Grid */}
+      {instructors.length === 0 ? (
+        <div className="panel py-20 text-center px-6">
+          <div className="mx-auto mb-4 size-14 rounded-2xl bg-primary/10 grid place-items-center">
+            <GraduationCap className="size-7 text-primary" />
+          </div>
+          <h3 className="text-lg font-semibold">No instructors yet</h3>
+          <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+            Add instructors with their name, photo, and bio to build your teaching roster.
+          </p>
+          <Button
+            onClick={() => {
+              setEditTarget(null);
+              setModalOpen(true);
+            }}
+            className="mt-6 gap-2"
+          >
+            <UserPlus className="size-4" /> Add first instructor
+          </Button>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="panel py-14 text-center px-6">
+          <p className="text-sm text-muted-foreground">No instructors match your search.</p>
+        </div>
+      ) : (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filtered.map((instr) => (
+            <InstructorCard
+              key={instr.id}
+              instructor={instr}
+              onEdit={() => {
+                setEditTarget(instr);
+                setModalOpen(true);
+              }}
+              onDelete={() => setDeleteTarget(instr)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Stats bar */}
+      {instructors.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Showing {filtered.length} of {instructors.length} instructor{instructors.length !== 1 ? "s" : ""}
+        </p>
+      )}
+
+      {/* Add / Edit Modal */}
+      <InstructorFormModal
+        open={modalOpen}
+        instructor={editTarget}
+        onClose={() => {
+          setModalOpen(false);
+          setEditTarget(null);
+        }}
+        onSave={editTarget ? handleUpdate : handleAdd}
+      />
+
+      {/* Delete Confirm Dialog */}
+      {deleteTarget && (
+        <Dialog open={Boolean(deleteTarget)} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="size-5" /> Delete Instructor
+              </DialogTitle>
+              <DialogDescription>
+                Are you sure you want to remove{" "}
+                <strong className="text-foreground">{deleteTarget.name}</strong>? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleDelete(deleteTarget.id)}
+                className="gap-1.5"
+              >
+                <Trash2 className="size-4" /> Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+}
+
+// ─── Sessions Page ───────────────────────────────────────────────────────────
 function SessionsPage() {
   const [sessionsList, setSessionsList] = useState<LiveSession[]>([]);
+  const [instructors, setInstructors] = useState<Instructor[]>(DEFAULT_INSTRUCTORS);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLevel, setSelectedLevel] = useState<string>("All");
   const [composing, setComposing] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"sessions" | "instructors">("sessions");
 
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
-    getSessions()
-      .then((data) => {
+    Promise.all([
+      getSessions().then((data) => {
         if (isMounted) {
           setSessionsList(data);
         }
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
+      }),
+      getInstructors().then((data) => {
+        if (isMounted && data.length > 0) {
+          setInstructors(data);
+        }
+      }),
+    ]).finally(() => {
+      if (isMounted) setLoading(false);
+    });
     return () => {
       isMounted = false;
     };
@@ -1811,84 +2514,104 @@ function SessionsPage() {
       <PageHeader
         eyebrow="Live Sessions"
         title="Live Skill Sessions"
-        description="Schedule live Meet sessions, build structured headings & covered topics, and track student enrollments."
+        description="Schedule live Meet sessions and manage your instructor roster."
         action={
-          <Button onClick={() => setComposing(true)} className="gap-2 shadow-xs">
-            <Plus className="size-4" />
-            <span>Schedule session</span>
-          </Button>
+          activeTab === "sessions" ? (
+            <Button onClick={() => setComposing(true)} className="gap-2 shadow-xs">
+              <Plus className="size-4" />
+              <span>Schedule session</span>
+            </Button>
+          ) : undefined
         }
       />
 
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input
-              placeholder="Search sessions by title, host or tags..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+      <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as "sessions" | "instructors")} className="space-y-6">
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="sessions" className="gap-2">
+            <Layers className="size-4" /> Sessions
+          </TabsTrigger>
+          <TabsTrigger value="instructors" className="gap-2">
+            <GraduationCap className="size-4" /> Instructors
+          </TabsTrigger>
+        </TabsList>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground whitespace-nowrap">Filter by level:</span>
-            <Select value={selectedLevel} onValueChange={setSelectedLevel}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="All Levels" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All">All Levels</SelectItem>
-                <SelectItem value="Beginner">Beginner</SelectItem>
-                <SelectItem value="Intermediate">Intermediate</SelectItem>
-                <SelectItem value="Advanced">Advanced</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <Loader2 className="size-8 animate-spin text-primary mb-3" />
-            <p className="text-sm">Loading your live sessions...</p>
-          </div>
-        ) : filteredSessions.length === 0 ? (
-          <div className="panel text-center py-16 px-4">
-            <Layers className="size-12 mx-auto text-muted-foreground mb-4 opacity-40" />
-            <h3 className="text-lg font-semibold">No live sessions found</h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-              {searchQuery || selectedLevel !== "All"
-                ? "Try adjusting your search query or filters to find what you are looking for."
-                : "Schedule your first live skill session with structured headings, covered topics, and Meet integration."}
-            </p>
-            {!searchQuery && selectedLevel === "All" && (
-              <Button onClick={() => setComposing(true)} className="mt-6 gap-2">
-                <Plus className="size-4" />
-                <span>Schedule a session</span>
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredSessions.map((session) => (
-              <SessionCard
-                key={session.id}
-                s={session}
-                onOpen={() => setOpenId(session.id)}
-                onEdit={() => setEditId(session.id)}
-                onDelete={() => handleDelete(session.id)}
-                onToggleJoinLink={() => handleToggleJoinLink(session.id)}
+        {/* ── Sessions Tab ── */}
+        <TabsContent value="sessions" className="space-y-6 mt-0">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                placeholder="Search sessions by title, host or tags..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
               />
-            ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Filter by level:</span>
+              <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="All Levels" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Levels</SelectItem>
+                  <SelectItem value="Beginner">Beginner</SelectItem>
+                  <SelectItem value="Intermediate">Intermediate</SelectItem>
+                  <SelectItem value="Advanced">Advanced</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        )}
-      </div>
+
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <Loader2 className="size-8 animate-spin text-primary mb-3" />
+              <p className="text-sm">Loading your live sessions...</p>
+            </div>
+          ) : filteredSessions.length === 0 ? (
+            <div className="panel text-center py-16 px-4">
+              <Layers className="size-12 mx-auto text-muted-foreground mb-4 opacity-40" />
+              <h3 className="text-lg font-semibold">No live sessions found</h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                {searchQuery || selectedLevel !== "All"
+                  ? "Try adjusting your search query or filters to find what you are looking for."
+                  : "Schedule your first live skill session with Meet integration."}
+              </p>
+              {!searchQuery && selectedLevel === "All" && (
+                <Button onClick={() => setComposing(true)} className="mt-6 gap-2">
+                  <Plus className="size-4" />
+                  <span>Schedule a session</span>
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredSessions.map((session) => (
+                <SessionCard
+                  key={session.id}
+                  s={session}
+                  onOpen={() => setOpenId(session.id)}
+                  onEdit={() => setEditId(session.id)}
+                  onDelete={() => handleDelete(session.id)}
+                  onToggleJoinLink={() => handleToggleJoinLink(session.id)}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── Instructors Tab ── */}
+        <TabsContent value="instructors" className="mt-0">
+          <InstructorsTab instructors={instructors} setInstructors={setInstructors} />
+        </TabsContent>
+      </Tabs>
 
       {composing && (
         <NewSessionScreen
           onClose={() => setComposing(false)}
           onSubmit={handleCreate}
+          instructors={instructors}
         />
       )}
 
@@ -1898,12 +2621,14 @@ function SessionsPage() {
           onClose={() => setEditId(null)}
           onSubmit={handleUpdate}
           onDelete={() => handleDelete(editing.id)}
+          instructors={instructors}
         />
       )}
 
       {active && (
         <FullScreenSession
           s={active}
+          instructors={instructors}
           onClose={() => setOpenId(null)}
           onEdit={() => {
             const id = active.id;

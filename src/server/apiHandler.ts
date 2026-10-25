@@ -161,50 +161,63 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     return json({ msg: "Job removed" });
   }
 
-  // Courses / Sessions Endpoints
-  if (path === "/api/courses" && method === "GET") {
+  // Live Sessions Endpoints (Admin & User)
+  if ((path === "/api/admin/live-sessions" || path === "/api/live-sessions" || path === "/api/courses") && method === "GET") {
     return json(serverSessions);
   }
 
-  if (path.startsWith("/api/courses/") && path.endsWith("/content") && method === "GET") {
-    const id = path.replace("/api/courses/", "").replace("/content", "");
+  if (path.startsWith("/api/admin/live-sessions/") && path.endsWith("/enrolled-users") && method === "GET") {
+    const id = path.replace("/api/admin/live-sessions/", "").replace("/enrolled-users", "");
     const session = serverSessions.find((s) => s.id === id);
-    if (session) {
-      return json({
-        ...session,
-        instructor: session.host,
-        description: session.summary,
-        modules: session.modules ?? null,
-      });
-    }
-    return json({ error: "Course not found" }, 404);
+    const applicants = session ? serverApplicants.filter((a) => a.kind === "Session" && a.target === session.title) : [];
+    const formatted = applicants.map((a) => ({
+      id: a.id,
+      userId: a.externalUserId || a.id,
+      name: a.name,
+      email: a.email,
+      avatarUrl: a.avatarUrl,
+      role: a.role,
+      enrolledAt: new Date().toISOString(),
+    }));
+    return json(formatted);
   }
 
-  if (path.startsWith("/api/courses/") && path.endsWith("/students") && method === "GET") {
-    const id = path.replace("/api/courses/", "").replace("/students", "");
+  if (path.startsWith("/api/admin/live-sessions/") && method === "GET") {
+    const id = path.replace("/api/admin/live-sessions/", "");
     const session = serverSessions.find((s) => s.id === id);
-    const students = session ? serverApplicants.filter((a) => a.target === session.title) : [];
-    return json(students);
+    if (session) return json(session);
+    return json({ error: "Session not found" }, 404);
   }
 
-  if (path === "/api/courses" && method === "POST") {
+  if ((path === "/api/admin/live-sessions" || path === "/api/courses") && method === "POST") {
     try {
       const body = await request.json();
+      const hostName = typeof body.instructor === "string" ? body.instructor : (body.instructor?.name || body.host || "Finder Careers");
+      const instructorObj = (body.instructor && typeof body.instructor === "object") ? body.instructor : {
+        id: body.instructorId || "instr-1",
+        name: hostName,
+        bio: "Principal System Architect & Tech Lead with 10+ years experience in distributed cloud systems.",
+        imageUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+      };
       const newSession = {
         id: `s${Date.now()}`,
         title: body.title || "New Session",
-        host: body.instructor || body.host || "Finder Careers",
-        date: body.date || "Aug 25, 2026",
-        time: body.time || "7:00 PM IST",
-        duration: body.duration || "60 min",
+        host: hostName,
+        instructorId: body.instructorId || instructorObj.id || "default-instructor",
+        instructor: instructorObj,
+        date: body.scheduledDate || body.date || "Nov 1, 2026",
+        time: body.startTime || body.time || "7:00 PM IST",
+        endTime: body.endTime || "8:30 PM IST",
+        duration: body.duration || "90 min",
         seats: body.seats || 100,
         enrolled: 0,
-        price: body.price === 0 || body.price === "0" ? "Free" : typeof body.price === "number" ? `₹${body.price}` : body.price || "Free",
+        enrolledCount: 0,
+        price: "Free",
         level: body.level || "Beginner",
         status: "Scheduled",
-        meetLink: body.liveUrl || body.meetLink || "meet.google.com/fdr-live",
-        isJoinLinkEnabled: body.isJoinLinkEnabled ?? body.joinLinkEnabled ?? true,
-        tags: body.category ? [body.category] : body.tags || ["Live"],
+        meetLink: body.liveUrl || body.meetLink || "https://meet.google.com/live",
+        isJoinLinkEnabled: body.isJoinLinkEnabled ?? true,
+        tags: body.category ? [body.category] : body.tags || ["Live Session"],
         thumbnail: body.thumbnail,
         summary: body.description || body.summary,
         modules: body.modules ?? null,
@@ -216,8 +229,8 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     }
   }
 
-  if (path.startsWith("/api/courses/") && (method === "PUT" || method === "PATCH")) {
-    const id = path.replace("/api/courses/", "").replace("/join-link", "");
+  if ((path.startsWith("/api/admin/live-sessions/") || path.startsWith("/api/courses/")) && (method === "PUT" || method === "PATCH")) {
+    const id = path.replace("/api/admin/live-sessions/", "").replace("/api/courses/", "").replace("/join-link", "");
     try {
       const body = await request.json();
       const idx = serverSessions.findIndex((s) => s.id === id);
@@ -225,31 +238,37 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
         serverSessions[idx] = {
           ...serverSessions[idx],
           ...(body.title && { title: body.title }),
-          ...(body.instructor && { host: body.instructor }),
+          ...((body.instructorId || body.instructor) && { host: body.instructorId || body.instructor }),
           ...(body.description && { summary: body.description }),
           ...(body.duration && { duration: body.duration }),
           ...(body.liveUrl && { meetLink: body.liveUrl }),
           ...(body.isJoinLinkEnabled !== undefined && { isJoinLinkEnabled: body.isJoinLinkEnabled }),
-          ...(body.enabled !== undefined && { isJoinLinkEnabled: body.enabled }),
           ...(body.thumbnail && { thumbnail: body.thumbnail }),
-          ...(body.level && { level: body.level }),
-          ...(body.price !== undefined && {
-            price: body.price === 0 ? "Free" : `₹${body.price}`,
-          }),
-          ...(body.modules !== undefined && { modules: body.modules }),
+          ...(body.seats && { seats: body.seats }),
+          ...(body.scheduledDate && { date: body.scheduledDate }),
+          ...(body.startTime && { time: body.startTime }),
+          ...(body.endTime && { endTime: body.endTime }),
         };
         return json(serverSessions[idx]);
       }
-      return json({ error: "Course not found" }, 404);
+      return json({ error: "Session not found" }, 404);
     } catch {
       return json({ error: "Invalid JSON" }, 400);
     }
   }
 
-  if (path.startsWith("/api/courses/") && method === "DELETE") {
-    const id = path.replace("/api/courses/", "");
+  if ((path.startsWith("/api/admin/live-sessions/") || path.startsWith("/api/courses/")) && method === "DELETE") {
+    const id = path.replace("/api/admin/live-sessions/", "").replace("/api/courses/", "");
     serverSessions = serverSessions.filter((s) => s.id !== id);
-    return json({ msg: "Course removed" });
+    return new Response(null, { status: 204 });
+  }
+
+  if (path.startsWith("/api/live-sessions/") && path.endsWith("/enroll") && method === "POST") {
+    const id = path.replace("/api/live-sessions/", "").replace("/enroll", "");
+    const session = serverSessions.find((s) => s.id === id);
+    if (!session) return json({ message: "Session not found" }, 404);
+    session.enrolled = (session.enrolled || 0) + 1;
+    return json({ ...session, enrolled: true });
   }
 
   // Applications Endpoints

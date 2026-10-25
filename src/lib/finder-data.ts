@@ -38,12 +38,22 @@ export type Job = {
 
 export const jobs: Job[] = [];
 
+export type SessionInstructor = {
+  id?: string;
+  name: string;
+  bio?: string | null;
+  imageUrl?: string | null;
+};
+
 export type LiveSession = {
   id: string;
   title: string;
   host: string;
+  instructorId?: string;
+  instructor?: SessionInstructor | null;
   date: string;
   time: string;
+  endTime?: string;
   duration: string;
   seats: number;
   enrolled: number;
