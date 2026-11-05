@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Briefcase, Radio, Search, Bell, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Briefcase, Radio, Mail, Search, Bell, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/authContext";
 const nav = [
   { to: "/jobs", label: "Internships & Jobs", short: "Jobs", icon: Briefcase },
   { to: "/sessions", label: "Live Sessions", short: "Sessions", icon: Radio },
+  { to: "/emails", label: "Bulk Email", short: "Emails", icon: Mail },
 ] as const;
 
 

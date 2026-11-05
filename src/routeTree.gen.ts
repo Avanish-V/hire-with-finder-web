@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApplicantsRouteImport } from './routes/applicants'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as EmailsRouteImport } from './routes/emails'
 import { Route as JobsRouteImport } from './routes/jobs'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SessionsRouteImport } from './routes/sessions'
@@ -29,6 +30,11 @@ const ApplicantsRoute = ApplicantsRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmailsRoute = EmailsRouteImport.update({
+  id: '/emails',
+  path: '/emails',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JobsRoute = JobsRouteImport.update({
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/applicants': typeof ApplicantsRoute
   '/auth': typeof AuthRoute
+  '/emails': typeof EmailsRoute
   '/jobs': typeof JobsRoute
   '/profile': typeof ProfileRoute
   '/sessions': typeof SessionsRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/applicants': typeof ApplicantsRoute
   '/auth': typeof AuthRoute
+  '/emails': typeof EmailsRoute
   '/jobs': typeof JobsRoute
   '/profile': typeof ProfileRoute
   '/sessions': typeof SessionsRoute
@@ -68,20 +76,36 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/applicants': typeof ApplicantsRoute
   '/auth': typeof AuthRoute
+  '/emails': typeof EmailsRoute
   '/jobs': typeof JobsRoute
   '/profile': typeof ProfileRoute
   '/sessions': typeof SessionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/applicants' | '/auth' | '/jobs' | '/profile' | '/sessions'
+  fullPaths:
+    | '/'
+    | '/applicants'
+    | '/auth'
+    | '/emails'
+    | '/jobs'
+    | '/profile'
+    | '/sessions'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/applicants' | '/auth' | '/jobs' | '/profile' | '/sessions'
+  to:
+    | '/'
+    | '/applicants'
+    | '/auth'
+    | '/emails'
+    | '/jobs'
+    | '/profile'
+    | '/sessions'
   id:
     | '__root__'
     | '/'
     | '/applicants'
     | '/auth'
+    | '/emails'
     | '/jobs'
     | '/profile'
     | '/sessions'
@@ -91,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApplicantsRoute: typeof ApplicantsRoute
   AuthRoute: typeof AuthRoute
+  EmailsRoute: typeof EmailsRoute
   JobsRoute: typeof JobsRoute
   ProfileRoute: typeof ProfileRoute
   SessionsRoute: typeof SessionsRoute
@@ -117,6 +142,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/emails': {
+      id: '/emails'
+      path: '/emails'
+      fullPath: '/emails'
+      preLoaderRoute: typeof EmailsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/jobs': {
@@ -147,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApplicantsRoute: ApplicantsRoute,
   AuthRoute: AuthRoute,
+  EmailsRoute: EmailsRoute,
   JobsRoute: JobsRoute,
   ProfileRoute: ProfileRoute,
   SessionsRoute: SessionsRoute,

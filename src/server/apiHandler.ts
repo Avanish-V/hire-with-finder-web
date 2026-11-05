@@ -9,6 +9,32 @@ const BACKEND_URL =
 let serverJobs = [...jobs];
 let serverSessions = [...sessions];
 let serverApplicants = [...applicants];
+let serverEmailCampaigns: any[] = [
+  {
+    id: "c1-example-welcome",
+    title: "Welcome Batch 2026 Onboarding",
+    subject: "Welcome to Collabbit Careers, {{name}}!",
+    htmlContent: "<h2>Hello {{name}},</h2><p>Welcome to our careers platform. Explore all internships and jobs.</p>",
+    fromName: "Collabbit Talent Team",
+    fromEmail: "careers@collabbit.com",
+    replyTo: "support@collabbit.com",
+    status: "COMPLETED",
+    totalRecipients: 150,
+    sentCount: 150,
+    deliveredCount: 147,
+    failedCount: 1,
+    bouncedCount: 2,
+    complainedCount: 0,
+    deliveryRate: 98.0,
+    bounceRate: 1.3,
+    createdBy: "admin",
+    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+    updatedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+    startedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+    completedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+    attachments: [],
+  },
+];
 let serverProfile = {
   name: "",
   email: "",
@@ -348,6 +374,64 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     } catch {
       return json({ error: "Invalid JSON" }, 400);
     }
+  }
+
+  // Bulk Email Campaigns Endpoints
+  if (path === "/api/admin/email-campaigns" && method === "GET") {
+    return json({
+      content: serverEmailCampaigns,
+      totalElements: serverEmailCampaigns.length,
+      totalPages: 1,
+      size: 20,
+      number: 0,
+    });
+  }
+
+  if (path === "/api/admin/email-campaigns" && method === "POST") {
+    try {
+      const body = await request.json();
+      const newCampaign = {
+        id: `c${Date.now()}`,
+        title: body.title || "New Campaign",
+        subject: body.subject || "",
+        htmlContent: body.htmlContent || "",
+        fromName: body.fromName || "Finder Team",
+        fromEmail: body.fromEmail || "noreply@collabbit.com",
+        replyTo: body.replyTo || null,
+        status: "DRAFT",
+        totalRecipients: 0,
+        sentCount: 0,
+        deliveredCount: 0,
+        failedCount: 0,
+        bouncedCount: 0,
+        complainedCount: 0,
+        deliveryRate: 0,
+        bounceRate: 0,
+        createdBy: "admin",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        startedAt: null,
+        completedAt: null,
+        attachments: [],
+      };
+      serverEmailCampaigns.unshift(newCampaign);
+      return json(newCampaign, 201);
+    } catch {
+      return json({ error: "Invalid JSON" }, 400);
+    }
+  }
+
+  if (path.startsWith("/api/admin/email-campaigns/") && method === "GET" && !path.includes("/recipients")) {
+    const id = path.replace("/api/admin/email-campaigns/", "");
+    const camp = serverEmailCampaigns.find((c) => c.id === id);
+    if (camp) return json(camp);
+    return json({ error: "Campaign not found" }, 404);
+  }
+
+  if (path.startsWith("/api/admin/email-campaigns/") && method === "DELETE") {
+    const id = path.replace("/api/admin/email-campaigns/", "");
+    serverEmailCampaigns = serverEmailCampaigns.filter((c) => c.id !== id);
+    return new Response(null, { status: 204 });
   }
 
   // Auth Supabase session exchange
