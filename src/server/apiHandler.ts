@@ -450,6 +450,84 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     return json({ error: "Campaign not found" }, 404);
   }
 
+  if (path.startsWith("/api/admin/email-campaigns/") && method === "PUT") {
+    const id = path.replace("/api/admin/email-campaigns/", "");
+    const idx = serverEmailCampaigns.findIndex((c) => c.id === id);
+    if (idx !== -1) {
+      try {
+        const body = await request.json();
+        serverEmailCampaigns[idx] = {
+          ...serverEmailCampaigns[idx],
+          title: body.title !== undefined ? body.title : serverEmailCampaigns[idx].title,
+          subject: body.subject !== undefined ? body.subject : serverEmailCampaigns[idx].subject,
+          htmlContent: body.htmlContent !== undefined ? body.htmlContent : serverEmailCampaigns[idx].htmlContent,
+          fromName: body.fromName !== undefined ? body.fromName : serverEmailCampaigns[idx].fromName,
+          fromEmail: body.fromEmail !== undefined ? body.fromEmail : serverEmailCampaigns[idx].fromEmail,
+          replyTo: body.replyTo !== undefined ? body.replyTo : serverEmailCampaigns[idx].replyTo,
+          updatedAt: new Date().toISOString(),
+        };
+        return json(serverEmailCampaigns[idx]);
+      } catch {
+        return json({ error: "Invalid JSON" }, 400);
+      }
+    }
+    return json({ error: "Campaign not found" }, 404);
+  }
+
+  if (path.startsWith("/api/admin/email-campaigns/") && path.endsWith("/start") && method === "POST") {
+    const id = path.replace("/api/admin/email-campaigns/", "").replace("/start", "");
+    const camp = serverEmailCampaigns.find((c) => c.id === id);
+    if (camp) {
+      camp.status = "PROCESSING";
+      camp.startedAt = new Date().toISOString();
+      camp.updatedAt = new Date().toISOString();
+      return json(camp);
+    }
+    return json({ error: "Campaign not found" }, 404);
+  }
+
+  if (path.startsWith("/api/admin/email-campaigns/") && path.endsWith("/relaunch") && method === "POST") {
+    const id = path.replace("/api/admin/email-campaigns/", "").replace("/relaunch", "");
+    const camp = serverEmailCampaigns.find((c) => c.id === id);
+    if (camp) {
+      camp.status = "PROCESSING";
+      camp.sentCount = 0;
+      camp.deliveredCount = 0;
+      camp.failedCount = 0;
+      camp.bouncedCount = 0;
+      camp.complainedCount = 0;
+      camp.startedAt = new Date().toISOString();
+      camp.completedAt = null;
+      camp.updatedAt = new Date().toISOString();
+      return json(camp);
+    }
+    return json({ error: "Campaign not found" }, 404);
+  }
+
+  if (path.startsWith("/api/admin/email-campaigns/") && path.endsWith("/cancel") && method === "POST") {
+    const id = path.replace("/api/admin/email-campaigns/", "").replace("/cancel", "");
+    const camp = serverEmailCampaigns.find((c) => c.id === id);
+    if (camp) {
+      camp.status = "CANCELLED";
+      camp.updatedAt = new Date().toISOString();
+      return json(camp);
+    }
+    return json({ error: "Campaign not found" }, 404);
+  }
+
+  if (path.startsWith("/api/admin/email-campaigns/") && path.endsWith("/retry-failed") && method === "POST") {
+    const id = path.replace("/api/admin/email-campaigns/", "").replace("/retry-failed", "");
+    const camp = serverEmailCampaigns.find((c) => c.id === id);
+    if (camp) {
+      camp.status = "PROCESSING";
+      camp.failedCount = 0;
+      camp.bouncedCount = 0;
+      camp.updatedAt = new Date().toISOString();
+      return json(camp);
+    }
+    return json({ error: "Campaign not found" }, 404);
+  }
+
   if (path.startsWith("/api/admin/email-campaigns/") && method === "DELETE") {
     const id = path.replace("/api/admin/email-campaigns/", "");
     serverEmailCampaigns = serverEmailCampaigns.filter((c) => c.id !== id);

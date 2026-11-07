@@ -233,6 +233,17 @@ export const bulkEmailApi = {
     return res.json();
   },
 
+  relaunchCampaign: async (id: string): Promise<EmailCampaign> => {
+    const res = await apiRequest(`/api/admin/email-campaigns/${id}/relaunch`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Failed to relaunch campaign");
+    }
+    return res.json();
+  },
+
   cancelCampaign: async (id: string): Promise<EmailCampaign> => {
     const res = await apiRequest(`/api/admin/email-campaigns/${id}/cancel`, {
       method: "POST",

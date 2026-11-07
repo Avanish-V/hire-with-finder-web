@@ -23,6 +23,7 @@ import {
   X,
   Pencil,
   Play,
+  RotateCcw,
   Ban,
   MoreHorizontal,
 } from "lucide-react";
@@ -156,6 +157,15 @@ function canRetry(status: CampaignStatus): boolean {
   return status === "COMPLETED_WITH_ERRORS" || status === "FAILED";
 }
 
+function canRelaunch(status: CampaignStatus): boolean {
+  return (
+    status === "COMPLETED" ||
+    status === "COMPLETED_WITH_ERRORS" ||
+    status === "CANCELLED" ||
+    status === "FAILED"
+  );
+}
+
 function canEdit(status: CampaignStatus): boolean {
   return status === "DRAFT" || status === "READY";
 }
@@ -233,6 +243,7 @@ function CampaignCard({
   onStart,
   onCancel,
   onRetry,
+  onRelaunch,
 }: {
   c: EmailCampaign;
   onView: () => void;
@@ -241,6 +252,7 @@ function CampaignCard({
   onStart: () => void;
   onCancel: () => void;
   onRetry: () => void;
+  onRelaunch: () => void;
 }) {
   const sentPct =
     c.totalRecipients > 0
@@ -311,6 +323,11 @@ function CampaignCard({
                 <RefreshCcw className="size-3.5" /> Retry failed
               </DropdownMenuItem>
             )}
+            {canRelaunch(c.status) && (
+              <DropdownMenuItem onSelect={onRelaunch} className="gap-2">
+                <RotateCcw className="size-3.5" /> Relaunch campaign
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={onDelete}
@@ -362,6 +379,11 @@ function CampaignCard({
           {canStart(c.status) && (
             <Button size="sm" onClick={onStart}>
               <Play className="size-3.5" /> Start
+            </Button>
+          )}
+          {canRelaunch(c.status) && (
+            <Button size="sm" variant="outline" onClick={onRelaunch}>
+              <RotateCcw className="size-3.5" /> Relaunch
             </Button>
           )}
           {canCancel(c.status) && (
@@ -773,6 +795,27 @@ function CampaignWizard({
     htmlContent: initialCampaign?.htmlContent ?? "",
   });
 
+  useEffect(() => {
+    if (initialCampaign?.id) {
+      bulkEmailApi
+        .getCampaignById(initialCampaign.id)
+        .then((full) => {
+          setCampaign(full);
+          setAttachments(full.attachments ?? []);
+          setForm((prev) => ({
+            ...prev,
+            title: full.title ?? prev.title,
+            fromName: full.fromName ?? prev.fromName,
+            fromEmail: full.fromEmail ?? prev.fromEmail,
+            replyTo: full.replyTo ?? prev.replyTo,
+            subject: full.subject ?? prev.subject,
+            htmlContent: full.htmlContent ?? prev.htmlContent,
+          }));
+        })
+        .catch(() => {});
+    }
+  }, [initialCampaign?.id]);
+
   const currentStepIndex = WIZARD_STEPS.findIndex((s) => s.key === step);
 
   function patch(field: keyof WizardForm, value: string) {
@@ -789,7 +832,7 @@ function CampaignWizard({
       const payload = {
         title: form.title.trim(),
         subject: form.subject.trim() || undefined,
-        htmlContent: form.htmlContent.trim() || undefined,
+        htmlContent: form.htmlContent,
         fromName: form.fromName.trim(),
         fromEmail: form.fromEmail.trim(),
         replyTo: form.replyTo.trim() || undefined,
@@ -813,7 +856,7 @@ function CampaignWizard({
   }
 
   async function handleNext() {
-    if (step === "details") {
+    if (step === "details" || step === "content") {
       const saved = await saveDraft();
       if (!saved) return;
     }
@@ -905,7 +948,14 @@ function CampaignWizard({
             <li key={s.key} className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => i <= currentStepIndex && setStep(s.key)}
+                onClick={async () => {
+                  if (i <= currentStepIndex) {
+                    if (step === "details" || step === "content") {
+                      await saveDraft();
+                    }
+                    setStep(s.key);
+                  }
+                }}
                 className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                   step === s.key
                     ? "bg-primary text-primary-foreground"
@@ -1256,6 +1306,22 @@ function CampaignDetail({
     }
   }
 
+  async function handleRelaunch() {
+    setActionLoading(true);
+    try {
+      const updated = await bulkEmailApi.relaunchCampaign(campaign.id);
+      setCampaign(updated);
+      onUpdated(updated);
+      toast.success("Campaign relaunched and queued successfully.");
+    } catch (err) {
+      toast.error("Failed to relaunch campaign", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function handleExportFailed() {
     try {
       await bulkEmailApi.downloadFailedCsv(campaign.id);
@@ -1328,6 +1394,21 @@ function CampaignDetail({
                 <Play className="size-4" />
               )}{" "}
               Start
+            </Button>
+          )}
+          {canRelaunch(campaign.status) && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRelaunch}
+              disabled={actionLoading}
+            >
+              {actionLoading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RotateCcw className="size-4" />
+              )}{" "}
+              Relaunch
             </Button>
           )}
           {canCancel(campaign.status) && (
@@ -1664,6 +1745,73 @@ function DeleteDialog({
   );
 }
 
+// ─── Relaunch Confirmation Dialog ─────────────────────────────────────────────
+
+function RelaunchDialog({
+  campaign,
+  open,
+  onOpenChange,
+  onRelaunched,
+}: {
+  campaign: EmailCampaign | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onRelaunched: (c: EmailCampaign) => void;
+}) {
+  const [relaunching, setRelaunching] = useState(false);
+
+  async function confirm() {
+    if (!campaign) return;
+    setRelaunching(true);
+    try {
+      const updated = await bulkEmailApi.relaunchCampaign(campaign.id);
+      toast.success(`"${campaign.title}" relaunched and queued!`);
+      onRelaunched(updated);
+    } catch (err) {
+      toast.error("Failed to relaunch campaign", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setRelaunching(false);
+      onOpenChange(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Relaunch campaign?</DialogTitle>
+          <DialogDescription>
+            This will reset all recipient delivery statuses for &quot;
+            {campaign?.title}&quot; and re-enqueue the campaign to be sent immediately.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={relaunching}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={confirm}
+            disabled={relaunching}
+          >
+            {relaunching ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RotateCcw className="size-4" />
+            )}
+            Relaunch
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 function EmailsPage() {
@@ -1679,6 +1827,8 @@ function EmailsPage() {
   const [editingCampaign, setEditingCampaign] =
     useState<EmailCampaign | null>(null);
   const [deletingCampaign, setDeletingCampaign] =
+    useState<EmailCampaign | null>(null);
+  const [relaunchingCampaign, setRelaunchingCampaign] =
     useState<EmailCampaign | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -1741,14 +1891,26 @@ function EmailsPage() {
     setView("create");
   }
 
-  function openDetail(c: EmailCampaign) {
+  async function openDetail(c: EmailCampaign) {
     setSelectedCampaign(c);
     setView("detail");
+    try {
+      const full = await bulkEmailApi.getCampaignById(c.id);
+      setSelectedCampaign(full);
+    } catch {
+      // keep c
+    }
   }
 
-  function openEdit(c: EmailCampaign) {
+  async function openEdit(c: EmailCampaign) {
     setEditingCampaign(c);
     setView("edit");
+    try {
+      const full = await bulkEmailApi.getCampaignById(c.id);
+      setEditingCampaign(full);
+    } catch {
+      // keep c
+    }
   }
 
   function handleDeleted() {
@@ -1798,6 +1960,15 @@ function EmailsPage() {
           open={!!deletingCampaign}
           onOpenChange={(v) => !v && setDeletingCampaign(null)}
           onDeleted={handleDeleted}
+        />
+        <RelaunchDialog
+          campaign={relaunchingCampaign}
+          open={!!relaunchingCampaign}
+          onOpenChange={(v) => !v && setRelaunchingCampaign(null)}
+          onRelaunched={(updated) => {
+            handleCampaignUpdated(updated);
+            setRelaunchingCampaign(null);
+          }}
         />
       </div>
     );
@@ -1907,6 +2078,7 @@ function EmailsPage() {
                     });
                   }
                 }}
+                onRelaunch={() => setRelaunchingCampaign(c)}
               />
             ))}
           </div>
@@ -1943,6 +2115,15 @@ function EmailsPage() {
         open={!!deletingCampaign}
         onOpenChange={(v) => !v && setDeletingCampaign(null)}
         onDeleted={handleDeleted}
+      />
+      <RelaunchDialog
+        campaign={relaunchingCampaign}
+        open={!!relaunchingCampaign}
+        onOpenChange={(v) => !v && setRelaunchingCampaign(null)}
+        onRelaunched={(updated) => {
+          handleCampaignUpdated(updated);
+          setRelaunchingCampaign(null);
+        }}
       />
     </div>
   );
