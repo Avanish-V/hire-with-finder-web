@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { stageTone, type Applicant } from "@/lib/finder-data";
 import { getApplicants } from "@/services/applicantsService";
+import { downloadCsvFile } from "@/services/sessionsService";
 import { CandidateProfileScreen } from "@/components/CandidateProfile";
 
 export const Route = createFileRoute("/applicants")({
@@ -85,6 +86,46 @@ function ApplicantsPage() {
     [applicantsList, kind, stage, query],
   );
 
+  const handleExport = () => {
+    if (rows.length === 0) {
+      toast.info("No candidates to export.");
+      return;
+    }
+    const headers = [
+      "Name",
+      "Email",
+      "Phone",
+      "Role",
+      "Type",
+      "Target (Job / Session)",
+      "Stage",
+      "Applied Date",
+    ];
+    const csvRows = rows.map((a) =>
+      [
+        `"${(a.name || "").replace(/"/g, '""')}"`,
+        `"${(a.email || "").replace(/"/g, '""')}"`,
+        `"${(a.phone || "").replace(/"/g, '""')}"`,
+        `"${(a.role || "").replace(/"/g, '""')}"`,
+        `"${a.kind}"`,
+        `"${(a.target || "").replace(/"/g, '""')}"`,
+        `"${a.stage}"`,
+        `"${a.applied || ""}"`,
+      ].join(","),
+    );
+    const content = "\uFEFF" + [headers.join(","), ...csvRows].join("\r\n");
+    const filename =
+      kind === "Session"
+        ? "session_enrollees.csv"
+        : kind === "Job"
+          ? "job_applicants.csv"
+          : "candidates_and_enrollees.csv";
+    downloadCsvFile(content, filename);
+    toast.success(
+      `Exported ${rows.length} ${kind === "Session" ? "session enrollees" : "candidates"} (CSV)`,
+    );
+  };
+
   return (
     <div className="w-full">
       <PageHeader
@@ -92,8 +133,8 @@ function ApplicantsPage() {
         title="Applicants & enrollments"
         description="Everyone who applied to a role or enrolled in a live session, in one manageable list."
         action={
-          <Button variant="outline" onClick={() => toast.success("Export started (CSV)")}>
-            <Download className="size-4" /> Export
+          <Button variant="outline" onClick={handleExport} className="gap-2">
+            <Download className="size-4" /> Export CSV
           </Button>
         }
       />

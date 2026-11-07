@@ -101,6 +101,7 @@ export type Applicant = {
   match: number;
   stage: "New" | "Shortlisted" | "Interview" | "Hired" | "Rejected";
   email: string;
+  phone?: string;
   externalUserId?: string | null;
   avatarUrl?: string | null;
 };

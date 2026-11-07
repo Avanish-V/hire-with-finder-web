@@ -287,6 +287,7 @@ export async function getSessionEnrolledUsers(id: string): Promise<Applicant[]> 
             match: 100,
             stage: "New" as const,
             email: item.email || "",
+            phone: item.phone || item.phoneNumber || "",
             externalUserId: item.userId,
             avatarUrl: item.avatarUrl || null,
           };
@@ -300,6 +301,104 @@ export async function getSessionEnrolledUsers(id: string): Promise<Applicant[]> 
 }
 
 /**
+ * Triggers a browser download of a CSV file given a Blob or CSV string
+ */
+export function downloadCsvFile(content: Blob | string, filename: string): void {
+  const blob =
+    typeof content === "string"
+      ? new Blob([content.startsWith("\uFEFF") ? content : "\uFEFF" + content], {
+          type: "text/csv;charset=utf-8;",
+        })
+      : content;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", filename.endsWith(".csv") ? filename : `${filename}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Escape a value for inclusion in a standard RFC 4180 CSV cell
+ */
+function escapeCsvValue(val: unknown): string {
+  if (val === null || val === undefined) return '""';
+  const str = String(val).replace(/"/g, '""');
+  return `"${str}"`;
+}
+
+/**
+ * Builds standard RFC 4180 CSV content from a list of enrolled applicants
+ */
+export function buildEnrolledStudentsCsv(students: Applicant[]): string {
+  const headers = ["Name", "Email", "Phone", "Role", "Enrolled Date", "User ID"];
+  const rows = students.map((st) =>
+    [
+      escapeCsvValue(st.name),
+      escapeCsvValue(st.email || ""),
+      escapeCsvValue(st.phone || ""),
+      escapeCsvValue(st.role || "Candidate"),
+      escapeCsvValue(st.applied || "Enrolled"),
+      escapeCsvValue(st.externalUserId || st.id || ""),
+    ].join(","),
+  );
+
+  return "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+}
+
+/**
+ * Export enrolled students for a specific live session as CSV.
+ * 1. Attempts to download pre-generated server-side CSV from /api/admin/live-sessions/:id/enrolled-users/export
+ * 2. Falls back to fetching enrolled users and generating CSV client-side
+ */
+export async function exportSessionEnrolleesCsv(
+  session: { id: string; title: string },
+  preloadedStudents?: Applicant[],
+): Promise<{ success: boolean; count: number }> {
+  const safeTitle = session.title.replace(/[^a-zA-Z0-9_-]/g, "_") || "session";
+  const safeFilename = `${safeTitle}_enrolled_students.csv`;
+
+  // 1. Try server-side export first if no preloaded students
+  if (!preloadedStudents || preloadedStudents.length === 0) {
+    try {
+      const res = await apiRequest(`/api/admin/live-sessions/${session.id}/enrolled-users/export`);
+      if (res.ok) {
+        const contentType = res.headers.get("content-type") || "";
+        if (
+          contentType.includes("csv") ||
+          contentType.includes("octet-stream") ||
+          contentType.includes("text")
+        ) {
+          const blob = await res.blob();
+          if (blob.size > 0) {
+            downloadCsvFile(blob, safeFilename);
+            return { success: true, count: 1 };
+          }
+        }
+      }
+    } catch (err) {
+      console.debug("Backend CSV export endpoint unavailable, falling back to client-side generation:", err);
+    }
+  }
+
+  // 2. Fetch or use preloaded enrolled users
+  let list = preloadedStudents;
+  if (!list || list.length === 0) {
+    list = await getSessionEnrolledUsers(session.id);
+  }
+
+  if (!list || list.length === 0) {
+    return { success: false, count: 0 };
+  }
+
+  const csv = buildEnrolledStudentsCsv(list);
+  downloadCsvFile(csv, safeFilename);
+  return { success: true, count: list.length };
+}
+
+/**
  * Fetch details and enrolled students for a specific live session
  */
 export async function getSessionDetails(
@@ -308,12 +407,13 @@ export async function getSessionDetails(
   initialModules: SessionModule[] | null = null,
 ): Promise<{ modules: SessionModule[] | null; students: Applicant[] }> {
   let modules: SessionModule[] | null = initialModules && initialModules.length > 0 ? initialModules : null;
-  let students: Applicant[] = peopleFor(sessionTitle, "Session");
+  let students: Applicant[] = [];
+  let fetchedFromApi = false;
 
   try {
     const [detailRes, realEnrolledUsers] = await Promise.all([
       apiRequest(`/api/admin/live-sessions/${id}`).catch(() => null),
-      getSessionEnrolledUsers(id).catch(() => []),
+      getSessionEnrolledUsers(id).catch(() => null),
     ]);
 
     if (detailRes && detailRes.ok) {
@@ -323,11 +423,16 @@ export async function getSessionDetails(
       }
     }
 
-    if (Array.isArray(realEnrolledUsers) && realEnrolledUsers.length > 0) {
+    if (Array.isArray(realEnrolledUsers)) {
       students = realEnrolledUsers;
+      fetchedFromApi = true;
     }
   } catch {
     console.debug(`Live session detail for ${id} unavailable.`);
+  }
+
+  if (!fetchedFromApi) {
+    students = peopleFor(sessionTitle, "Session");
   }
 
   return { modules, students };

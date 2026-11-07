@@ -18,6 +18,7 @@ import {
   Search,
   Loader2,
   Layers,
+  Download,
   CheckCircle2,
   AlertCircle,
   Eye,
@@ -82,6 +83,7 @@ import {
   deleteSession,
   getSessionDetails,
   toggleSessionJoinLink,
+  exportSessionEnrolleesCsv,
 } from "@/services/sessionsService";
 import {
   type Instructor,
@@ -144,12 +146,14 @@ function SessionCard({
   onEdit,
   onDelete,
   onToggleJoinLink,
+  onExport,
 }: {
   s: LiveSession;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onToggleJoinLink?: () => void;
+  onExport?: () => void;
 }) {
   const pct = Math.min(100, Math.round((s.enrolled / (s.seats || 100)) * 100));
   const totalHeadings = s.modules?.length || 0;
@@ -285,6 +289,11 @@ function SessionCard({
               <DropdownMenuItem onSelect={onEdit} className="gap-2">
                 <Pencil className="size-3.5" /> Edit session
               </DropdownMenuItem>
+              {onExport && (
+                <DropdownMenuItem onSelect={onExport} className="gap-2 cursor-pointer">
+                  <Download className="size-3.5 text-primary" /> Export enrollees (CSV)
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onSelect={onDelete}
                 className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
@@ -319,9 +328,30 @@ function FullScreenSession({
     students: Applicant[];
   }>({
     modules: s.modules ?? null,
-    students: peopleFor(s.title, "Session"),
+    students: [],
   });
   const [loadingDetails, setLoadingDetails] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportEnrollees = async () => {
+    setExporting(true);
+    try {
+      const res = await exportSessionEnrolleesCsv(s, details.students);
+      if (res.success) {
+        toast.success(
+          res.count > 1
+            ? `Exported ${res.count} enrolled students (CSV)`
+            : "Enrollee list exported (CSV)",
+        );
+      } else {
+        toast.info("No enrolled students found to export.");
+      }
+    } catch {
+      toast.error("Failed to export enrolled students.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Resolve instructor details from session.instructor or from instructors roster
   const resolvedInstructor =
@@ -398,6 +428,20 @@ function FullScreenSession({
               )}
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={exporting}
+            onClick={handleExportEnrollees}
+            className="gap-1.5"
+          >
+            {exporting ? (
+              <Loader2 className="size-4 animate-spin text-primary" />
+            ) : (
+              <Download className="size-4" />
+            )}
+            <span>Export CSV</span>
+          </Button>
           <Button variant="outline" size="sm" onClick={onEdit}>
             <Pencil className="size-4" /> Edit session
           </Button>
@@ -566,30 +610,16 @@ function FullScreenSession({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  if (students.length === 0) {
-                    toast.info("No enrollees to export.");
-                    return;
-                  }
-                  const header = "Name,Email,Role,Enrolled Date\n";
-                  const rows = students
-                    .map((st) => `"${st.name}","${st.email}","${st.role}","${st.applied}"`)
-                    .join("\n");
-                  const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
-                  const url = URL.createObjectURL(blob);
-                  const link = document.createElement("a");
-                  link.href = url;
-                  link.setAttribute(
-                    "download",
-                    `${s.title.replace(/[^a-zA-Z0-9]/g, "_")}_enrollees.csv`
-                  );
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  toast.success("Enrollee list exported (CSV)");
-                }}
+                disabled={exporting}
+                onClick={handleExportEnrollees}
+                className="gap-1.5"
               >
-                Export
+                {exporting ? (
+                  <Loader2 className="size-3.5 animate-spin text-primary" />
+                ) : (
+                  <Download className="size-3.5" />
+                )}
+                <span>Export CSV</span>
               </Button>
             </div>
 
@@ -2498,6 +2528,23 @@ function SessionsPage() {
     });
   };
 
+  const handleExportSession = async (session: LiveSession) => {
+    try {
+      const res = await exportSessionEnrolleesCsv(session);
+      if (res.success) {
+        toast.success(
+          res.count > 1
+            ? `Exported ${res.count} enrolled students for "${session.title}" (CSV)`
+            : `Enrollee list exported for "${session.title}" (CSV)`,
+        );
+      } else {
+        toast.info(`No enrolled students found for "${session.title}".`);
+      }
+    } catch {
+      toast.error(`Failed to export enrollees for "${session.title}".`);
+    }
+  };
+
   const filteredSessions = sessionsList.filter((s) => {
     const matchesSearch =
       s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -2595,6 +2642,7 @@ function SessionsPage() {
                   onEdit={() => setEditId(session.id)}
                   onDelete={() => handleDelete(session.id)}
                   onToggleJoinLink={() => handleToggleJoinLink(session.id)}
+                  onExport={() => handleExportSession(session)}
                 />
               ))}
             </div>

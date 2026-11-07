@@ -201,11 +201,33 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       userId: a.externalUserId || a.id,
       name: a.name,
       email: a.email,
+      phone: a.phone || "",
       avatarUrl: a.avatarUrl,
       role: a.role,
       enrolledAt: new Date().toISOString(),
     }));
     return json(formatted);
+  }
+
+  if (path.startsWith("/api/admin/live-sessions/") && path.endsWith("/enrolled-users/export") && method === "GET") {
+    const id = path.replace("/api/admin/live-sessions/", "").replace("/enrolled-users/export", "");
+    const session = serverSessions.find((s) => s.id === id);
+    const applicants = session ? serverApplicants.filter((a) => a.kind === "Session" && a.target === session.title) : [];
+    const headers = "Name,Email,Phone,Role,Enrolled At,User ID\n";
+    const rows = applicants
+      .map(
+        (a) =>
+          `"${(a.name || "").replace(/"/g, '""')}","${(a.email || "").replace(/"/g, '""')}","${(a.phone || "").replace(/"/g, '""')}","${(a.role || "Candidate").replace(/"/g, '""')}","${new Date().toISOString()}","${a.externalUserId || a.id}"`,
+      )
+      .join("\n");
+    const safeTitle = (session?.title || "session").replace(/[^a-zA-Z0-9_-]/g, "_");
+    return new Response("\uFEFF" + headers + rows, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${safeTitle}_enrolled_students.csv"`,
+      },
+    });
   }
 
   if (path.startsWith("/api/admin/live-sessions/") && method === "GET") {
