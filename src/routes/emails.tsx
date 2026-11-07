@@ -26,6 +26,13 @@ import {
   RotateCcw,
   Ban,
   MoreHorizontal,
+  Bold,
+  Italic,
+  Heading,
+  List,
+  CornerDownLeft,
+  Sparkles,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/AppShell";
@@ -167,7 +174,7 @@ function canRelaunch(status: CampaignStatus): boolean {
 }
 
 function canEdit(status: CampaignStatus): boolean {
-  return status === "DRAFT" || status === "READY";
+  return !isActiveStatus(status);
 }
 
 function formatCount(n: number): string {
@@ -394,6 +401,11 @@ function CampaignCard({
               onClick={onCancel}
             >
               <Ban className="size-3.5" /> Cancel
+            </Button>
+          )}
+          {canEdit(c.status) && (
+            <Button size="sm" variant="outline" onClick={onEdit}>
+              <Pencil className="size-3.5" /> Edit
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={onView}>
@@ -762,16 +774,98 @@ function AttachmentUploader({
   );
 }
 
+// ─── Professional Email Formatting Utilities ─────────────────────────────────
+
+function formatPlainTextToHtml(text: string): string {
+  if (!text || !text.trim()) return "";
+  let clean = text.trim();
+
+  // If already full HTML document, leave as is
+  if (clean.toLowerCase().includes("<html") || clean.toLowerCase().includes("<!doctype")) {
+    return clean;
+  }
+
+  // Convert markdown bold **text** or __text__ to <strong>text</strong>
+  clean = clean.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  clean = clean.replace(/__(.*?)__/g, "<strong>$1</strong>");
+
+  // Convert markdown italic *text* or _text_ to <em>text</em>
+  clean = clean.replace(/(^|[^*])\*(?!\s)(.*?)(?!\s)\*(?=[^*]|$)/g, "$1<em>$2</em>");
+
+  // Check if text already has block tags
+  const hasBlockTags = /<\s*(p|div|table|h[1-6]|ul|ol)[^>]*>/i.test(clean);
+  if (hasBlockTags) {
+    return clean;
+  }
+
+  // Split by 2 or more newlines into paragraphs
+  const paragraphs = clean
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  return paragraphs
+    .map((p) => {
+      const lines = p.split(/\n/);
+      // Check for bullet list
+      if (lines.length > 0 && lines.every((l) => /^[-*•]\s+/.test(l.trim()))) {
+        const items = lines
+          .map((l) => `  <li style="margin-bottom: 6px;">${l.trim().replace(/^[-*•]\s+/, "")}</li>`)
+          .join("\n");
+        return `<ul style="margin: 0 0 16px 20px; padding: 0; line-height: 1.6; color: #2d3748;">\n${items}\n</ul>`;
+      }
+      // Check for numbered list
+      if (lines.length > 0 && lines.every((l) => /^\d+\.\s+/.test(l.trim()))) {
+        const items = lines
+          .map((l) => `  <li style="margin-bottom: 6px;">${l.trim().replace(/^\d+\.\s+/, "")}</li>`)
+          .join("\n");
+        return `<ol style="margin: 0 0 16px 20px; padding: 0; line-height: 1.6; color: #2d3748;">\n${items}\n</ol>`;
+      }
+      // Normal paragraph: join single newlines with <br/>
+      const inner = lines.join("<br/>\n  ");
+      return `<p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.65; color: #2d3748;">\n  ${inner}\n</p>`;
+    })
+    .join("\n\n");
+}
+
+function toProfessionalEmailDocument(bodyHtml: string): string {
+  if (!bodyHtml || !bodyHtml.trim()) return "<p></p>";
+
+  const formatted = formatPlainTextToHtml(bodyHtml);
+  if (formatted.toLowerCase().includes("<html")) {
+    return formatted;
+  }
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 24px 12px; background-color: #f7fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #2d3748;">
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+    <tr>
+      <td style="padding: 32px 32px 24px 32px; font-size: 15px; line-height: 1.65; color: #2d3748;">
+        ${formatted}
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 // ─── Campaign Wizard (Create / Edit) ─────────────────────────────────────────
 
 function CampaignWizard({
   initialCampaign,
   onClose,
   onSaved,
+  onUpdated,
 }: {
   initialCampaign: EmailCampaign | null;
   onClose: () => void;
   onSaved: (campaign: EmailCampaign) => void;
+  onUpdated?: (campaign: EmailCampaign) => void;
 }) {
   const isEditing = !!initialCampaign;
   const [step, setStep] = useState<WizardStep>("details");
@@ -818,8 +912,43 @@ function CampaignWizard({
 
   const currentStepIndex = WIZARD_STEPS.findIndex((s) => s.key === step);
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   function patch(field: keyof WizardForm, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function insertFormatting(prefix: string, suffix = "", defaultText = "") {
+    const el = textareaRef.current;
+    if (!el) {
+      patch("htmlContent", form.htmlContent + prefix + defaultText + suffix);
+      return;
+    }
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const text = form.htmlContent;
+    const selected = text.substring(start, end) || defaultText;
+    const replacement = prefix + selected + suffix;
+    const nextValue = text.substring(0, start) + replacement + text.substring(end);
+    patch("htmlContent", nextValue);
+
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(
+        start + prefix.length,
+        start + prefix.length + selected.length
+      );
+    }, 0);
+  }
+
+  function handleAutoFormat() {
+    if (!form.htmlContent.trim()) {
+      toast.error("Please enter email text first.");
+      return;
+    }
+    const formatted = formatPlainTextToHtml(form.htmlContent);
+    patch("htmlContent", formatted);
+    toast.success("Converted into clean, styled email paragraphs!");
   }
 
   async function saveDraft(): Promise<EmailCampaign | null> {
@@ -829,10 +958,14 @@ function CampaignWizard({
     }
     setSaving(true);
     try {
+      const formattedHtml = form.htmlContent.trim()
+        ? toProfessionalEmailDocument(form.htmlContent)
+        : form.htmlContent;
+
       const payload = {
         title: form.title.trim(),
         subject: form.subject.trim() || undefined,
-        htmlContent: form.htmlContent,
+        htmlContent: formattedHtml,
         fromName: form.fromName.trim(),
         fromEmail: form.fromEmail.trim(),
         replyTo: form.replyTo.trim() || undefined,
@@ -843,7 +976,8 @@ function CampaignWizard({
         : await bulkEmailApi.createCampaign(payload);
 
       setCampaign(saved);
-      toast.success("Draft saved.");
+      onUpdated?.(saved);
+      toast.success(isEditing ? "Changes saved." : "Draft saved.");
       return saved;
     } catch (err) {
       toast.error("Failed to save draft", {
@@ -883,8 +1017,15 @@ function CampaignWizard({
 
     setStarting(true);
     try {
-      const started = await bulkEmailApi.startCampaign(saved.id);
-      toast.success("Campaign queued! Emails will be sent shortly.");
+      const isRelaunch = canRelaunch(saved.status);
+      const started = isRelaunch
+        ? await bulkEmailApi.relaunchCampaign(saved.id)
+        : await bulkEmailApi.startCampaign(saved.id);
+      toast.success(
+        isRelaunch
+          ? "Campaign relaunched! Emails will be sent shortly."
+          : "Campaign queued! Emails will be sent shortly."
+      );
       onSaved(started);
     } catch (err) {
       toast.error("Failed to start campaign", {
@@ -922,7 +1063,7 @@ function CampaignWizard({
             {saving ? (
               <Loader2 className="size-4 animate-spin" />
             ) : null}
-            Save draft
+            {isEditing ? "Save changes" : "Save draft"}
           </Button>
           {isLastStep && (
             <Button
@@ -932,10 +1073,14 @@ function CampaignWizard({
             >
               {starting ? (
                 <Loader2 className="size-4 animate-spin" />
+              ) : canRelaunch(campaign?.status ?? initialCampaign?.status ?? "DRAFT") ? (
+                <RotateCcw className="size-4" />
               ) : (
                 <Send className="size-4" />
               )}
-              Start campaign
+              {canRelaunch(campaign?.status ?? initialCampaign?.status ?? "DRAFT")
+                ? "Relaunch campaign"
+                : "Start campaign"}
             </Button>
           )}
         </div>
@@ -1050,9 +1195,14 @@ function CampaignWizard({
                   onChange={(e) => patch("subject", e.target.value)}
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>HTML Body</Label>
+                  <div>
+                    <Label>Email Body *</Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Format your message with paragraphs, bold, headings, or HTML.
+                    </p>
+                  </div>
                   <Tabs
                     value={previewTab}
                     onValueChange={(v) =>
@@ -1074,29 +1224,150 @@ function CampaignWizard({
                 </div>
 
                 {previewTab === "edit" ? (
-                  <Textarea
-                    className="min-h-80 font-mono text-xs"
-                    placeholder="<h1>Hello {{name}},</h1><p>Your email body here…</p>"
-                    value={form.htmlContent}
-                    onChange={(e) => patch("htmlContent", e.target.value)}
-                  />
+                  <div className="rounded-lg border border-border shadow-sm overflow-hidden focus-within:ring-1 focus-within:ring-ring">
+                    {/* Rich Formatting Toolbar */}
+                    <div className="flex flex-wrap items-center gap-1 border-b border-border bg-secondary/35 p-1.5">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs font-semibold gap-1 hover:bg-background"
+                        onClick={() => insertFormatting("<strong>", "</strong>", "bold text")}
+                        title="Bold"
+                      >
+                        <Bold className="size-3.5" /> Bold
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs italic gap-1 hover:bg-background"
+                        onClick={() => insertFormatting("<em>", "</em>", "italic text")}
+                        title="Italic"
+                      >
+                        <Italic className="size-3.5" /> Italic
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1 hover:bg-background"
+                        onClick={() =>
+                          insertFormatting(
+                            "<h3 style=\"margin: 20px 0 10px 0; font-size: 18px; font-weight: 600; color: #1a202c;\">",
+                            "</h3>\n",
+                            "Heading"
+                          )
+                        }
+                        title="Heading"
+                      >
+                        <Heading className="size-3.5" /> Heading
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1 hover:bg-background"
+                        onClick={() =>
+                          insertFormatting(
+                            "<p style=\"margin: 0 0 16px 0; font-size: 15px; line-height: 1.65; color: #2d3748;\">",
+                            "</p>\n",
+                            "Paragraph text"
+                          )
+                        }
+                        title="Paragraph"
+                      >
+                        Paragraph
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1 hover:bg-background"
+                        onClick={() => insertFormatting("<br/>\n", "")}
+                        title="Line break"
+                      >
+                        <CornerDownLeft className="size-3.5" /> Line break
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1 hover:bg-background"
+                        onClick={() =>
+                          insertFormatting(
+                            "<ul style=\"margin: 0 0 16px 20px; line-height: 1.6; color: #2d3748;\">\n  <li>",
+                            "</li>\n  <li>Second item</li>\n</ul>\n",
+                            "First item"
+                          )
+                        }
+                        title="Bullet List"
+                      >
+                        <List className="size-3.5" /> List
+                      </Button>
+                      <span className="mx-1 h-4 w-px bg-border/60" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs font-mono gap-1 text-primary bg-background"
+                        onClick={() => insertFormatting("{{name}}", "")}
+                        title="Insert recipient name token"
+                      >
+                        <User className="size-3.5" /> {"{{name}}"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="ml-auto h-7 px-2 text-xs gap-1.5"
+                        onClick={handleAutoFormat}
+                        title="Auto-format paragraphs and line breaks into clean email HTML"
+                      >
+                        <Sparkles className="size-3 text-amber-500" /> Auto-format to HTML
+                      </Button>
+                    </div>
+
+                    <Textarea
+                      ref={textareaRef}
+                      className="min-h-80 border-0 rounded-none shadow-none font-mono text-xs leading-relaxed focus-visible:ring-0"
+                      placeholder="Hi {{name}},&#10;&#10;Write your email here using normal line breaks and paragraphs.&#10;&#10;Use the toolbar for Bold, Italic, Headings, or click 'Auto-format to HTML' to convert plain text into styled email paragraphs!&#10;&#10;Best regards,&#10;Your Team"
+                      value={form.htmlContent}
+                      onChange={(e) => patch("htmlContent", e.target.value)}
+                    />
+                  </div>
                 ) : (
-                  <div
-                    className="min-h-80 w-full overflow-auto rounded-lg border border-border bg-white p-4 text-sm text-foreground dark:bg-zinc-900"
-                    // Safe: admin-only page, user controls their own HTML content
-                    dangerouslySetInnerHTML={{
-                      __html:
-                        form.htmlContent ||
-                        "<p class='text-muted-foreground'>Nothing to preview yet.</p>",
-                    }}
-                  />
+                  <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                    <div className="rounded-lg border border-border bg-background p-3 text-xs space-y-1.5 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-muted-foreground w-14">From:</span>
+                        <span className="text-foreground">{form.fromName || "Sender Name"} &lt;{form.fromEmail || "sender@example.com"}&gt;</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-muted-foreground w-14">To:</span>
+                        <span className="text-foreground">Jane Doe &lt;jane.doe@example.com&gt;</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-muted-foreground w-14">Subject:</span>
+                        <span className="font-medium text-foreground">{form.subject || "(No subject)"}</span>
+                      </div>
+                    </div>
+                    <div
+                      className="min-h-80 w-full overflow-auto rounded-lg border border-border bg-white p-6 text-foreground shadow-sm dark:bg-zinc-950"
+                      dangerouslySetInnerHTML={{
+                        __html: toProfessionalEmailDocument(
+                          (form.htmlContent || "Hi {{name}},\n\nWrite your message in the Edit tab to see how it looks here!").replace(/\{\{name\}\}/gi, "Jane Doe")
+                        ),
+                      }}
+                    />
+                  </div>
                 )}
                 <p className="text-xs text-muted-foreground">
                   Use{" "}
                   <code className="rounded bg-muted px-1 py-0.5">
                     {"{{name}}"}
                   </code>{" "}
-                  for recipient name personalization.
+                  for recipient name personalization. Double newlines automatically format as paragraphs, single newlines as line breaks.
                 </p>
               </div>
             </>
@@ -1159,17 +1430,34 @@ function CampaignWizard({
             Next <ChevronRight className="size-4" />
           </Button>
         ) : (
-          <Button
-            onClick={async () => {
-              const saved = await saveDraft();
-              if (saved) onSaved(saved);
-            }}
-            disabled={saving}
-            variant="outline"
-          >
-            {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-            Finish &amp; close
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={async () => {
+                const saved = await saveDraft();
+                if (saved) onSaved(saved);
+              }}
+              disabled={saving}
+              variant="outline"
+            >
+              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+              {isEditing ? "Save & close" : "Finish & close"}
+            </Button>
+            <Button
+              onClick={handleStartCampaign}
+              disabled={starting || saving}
+            >
+              {starting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : canRelaunch(campaign?.status ?? initialCampaign?.status ?? "DRAFT") ? (
+                <RotateCcw className="size-4" />
+              ) : (
+                <Send className="size-4" />
+              )}
+              {canRelaunch(campaign?.status ?? initialCampaign?.status ?? "DRAFT")
+                ? "Relaunch campaign"
+                : "Start campaign"}
+            </Button>
+          </div>
         )}
       </div>
     </div>
@@ -1872,9 +2160,14 @@ function EmailsPage() {
       }
       return [c, ...prev];
     });
-    setSelectedCampaign(null);
+    if (selectedCampaign?.id === c.id) {
+      setSelectedCampaign(c);
+      setView("detail");
+    } else {
+      setSelectedCampaign(null);
+      setView("list");
+    }
     setEditingCampaign(null);
-    setView("list");
     fetchCampaigns(0);
   }
 
@@ -1935,6 +2228,9 @@ function EmailsPage() {
         onSaved={(c) => {
           handleCampaignSaved(c);
           setEditingCampaign(null);
+        }}
+        onUpdated={(c) => {
+          handleCampaignUpdated(c);
         }}
       />
     );
